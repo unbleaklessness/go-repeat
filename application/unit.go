@@ -1,139 +1,53 @@
 package main
 
 import (
+	"database/sql"
+	"os"
 	"path"
 )
 
-type unit struct {
-	directory       string
-	informationFile string
-	qAndAs          map[string]string
-}
-
-func getQAndAs(questionsDirectory string, answersDirectory string) map[string]string {
+func newUnit(db *sql.DB, name string) ierrori {
 
 	var (
-		ie ierrori
-
-		qAndAs map[string]string
-
-		questions []string
-		answers   []string
-
-		question string
-
-		questionDirectory string
-		answerDirectory   string
-
-		questionFiles []string
-		answerFiles   []string
-
-		answerIndex int
+		e         error
+		p         string
+		w         string
+		thisError func(e error) ierrori
 	)
 
-	qAndAs = make(map[string]string)
-
-	questions, ie = listDirectoryNames(questionsDirectory)
-	if ie != nil {
-		return qAndAs
+	thisError = func(e error) ierrori {
+		return ierror{m: "Cound not create a new unit", e: e}
 	}
 
-	answers, ie = listDirectoryNames(answersDirectory)
-	if ie != nil {
-		return qAndAs
+	w, e = os.Getwd()
+	if e != nil {
+		return thisError(e)
+	}
+	p = path.Join(w, name)
+
+	e = os.MkdirAll(p, os.ModePerm)
+	if e != nil {
+		return thisError(e)
 	}
 
-	for _, question = range questions {
-		answerIndex = stringsIndex(answers, question)
-		if answerIndex != -1 {
-			questionDirectory = path.Join(questionsDirectory, question)
-			questionFiles, ie = listFiles(questionDirectory)
-			if ie != nil {
-				continue
-			}
-			if len(questionFiles) < 1 {
-				continue
-			}
-
-			answerDirectory = path.Join(answersDirectory, answers[answerIndex])
-			answerFiles, ie = listFiles(answerDirectory)
-			if ie != nil {
-				continue
-			}
-			if len(answerFiles) < 1 {
-				continue
-			}
-
-			qAndAs[questionDirectory] = answerDirectory
-		}
+	e = os.MkdirAll(path.Join(p, questionsName), os.ModePerm)
+	if e != nil {
+		return thisError(e)
 	}
 
-	return qAndAs
-}
-
-func toUnit(p string) (unit, bool) {
-
-	var (
-		u unit
-
-		questionsDirectory string
-		answersDirectory   string
-		informationFile    string
-
-		qAndAs map[string]string
-	)
-
-	questionsDirectory = path.Join(p, questionsDirectoryName)
-	answersDirectory = path.Join(p, answersDirectoryName)
-	informationFile = path.Join(p, informationFileName)
-
-	if !fileExists(informationFile) {
-		return u, false
+	e = os.MkdirAll(path.Join(p, answersName), os.ModePerm)
+	if e != nil {
+		return thisError(e)
 	}
 
-	if !directoryExists(questionsDirectory) {
-		return u, false
+	_, e = db.Exec(`insert into units
+		(path, date, score)
+		values
+		($1, $2, $3)
+	`, p, now(), 0)
+	if e != nil {
+		return thisError(e)
 	}
 
-	if !directoryExists(answersDirectory) {
-		return u, false
-	}
-
-	qAndAs = getQAndAs(questionsDirectory, answersDirectory)
-	if len(qAndAs) < 1 {
-		return u, false
-	}
-
-	u.qAndAs = qAndAs
-	u.directory = p
-	u.informationFile = informationFile
-
-	return u, true
-}
-
-func findUnits(p string) []unit {
-
-	var (
-		units       []unit
-		u           unit
-		directories []string
-		directory   string
-		ie          ierrori
-		ok          bool
-	)
-
-	directories, ie = listDirectories(p)
-	if ie != nil {
-		return units
-	}
-
-	for _, directory = range directories {
-		if u, ok = toUnit(directory); ok {
-			units = append(units, u)
-		} else {
-			units = append(units, findUnits(directory)...)
-		}
-	}
-
-	return units
+	return nil
 }
