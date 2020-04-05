@@ -9,33 +9,33 @@ import (
 func newUnit(db *sql.DB, name string) ierrori {
 
 	var (
-		e         error
-		p         string
-		w         string
-		thisError func(e error) ierrori
+		e                error
+		unitPath         string
+		currentDirectory string
+		thisError        func(e error) ierrori
 	)
 
 	thisError = func(e error) ierrori {
 		return ierror{m: "Cound not create a new unit", e: e}
 	}
 
-	w, e = os.Getwd()
+	currentDirectory, e = os.Getwd()
 	if e != nil {
 		return thisError(e)
 	}
-	p = path.Join(w, name)
+	unitPath = path.Join(currentDirectory, name)
 
-	e = os.MkdirAll(p, os.ModePerm)
-	if e != nil {
-		return thisError(e)
-	}
-
-	e = os.MkdirAll(path.Join(p, questionsName), os.ModePerm)
+	e = os.MkdirAll(unitPath, os.ModePerm)
 	if e != nil {
 		return thisError(e)
 	}
 
-	e = os.MkdirAll(path.Join(p, answersName), os.ModePerm)
+	e = os.MkdirAll(path.Join(unitPath, questionsName), os.ModePerm)
+	if e != nil {
+		return thisError(e)
+	}
+
+	e = os.MkdirAll(path.Join(unitPath, answersName), os.ModePerm)
 	if e != nil {
 		return thisError(e)
 	}
@@ -44,7 +44,7 @@ func newUnit(db *sql.DB, name string) ierrori {
 		(path, date, score)
 		values
 		($1, $2, $3)
-	`, p, now(), 0)
+	`, unitPath, now(), 0)
 	if e != nil {
 		return thisError(e)
 	}
