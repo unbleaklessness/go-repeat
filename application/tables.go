@@ -10,7 +10,8 @@ func createTables(db *sql.DB) ierrori {
 		id integer primary key autoincrement,
 		path text not null,
 		date text not null,
-		score real not null
+		score real not null,
+		stage integer not null
 	)`)
 	if e != nil {
 		return ierror{m: "Could not create tables", e: e}
