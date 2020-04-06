@@ -9,6 +9,8 @@ type flags struct {
 	delete   string
 	question bool
 	answer   bool
+	yes      bool
+	no       bool
 	rest     []string
 }
 
@@ -21,6 +23,8 @@ func initializeFlags() flags {
 		deleteFlag   *string
 		questionFlag *bool
 		answerFlag   *bool
+		yesFlag      *bool
+		noFlag       *bool
 
 		f flags
 	)
@@ -31,6 +35,8 @@ func initializeFlags() flags {
 	deleteFlag = flag.String("d", "", "Delete unit")
 	questionFlag = flag.Bool("q", false, "Show a question")
 	answerFlag = flag.Bool("a", false, "Show an answer")
+	yesFlag = flag.Bool("yes", false, "You answered correclty")
+	noFlag = flag.Bool("no", false, "You answered incorreclty")
 
 	flag.Parse()
 
@@ -40,6 +46,8 @@ func initializeFlags() flags {
 	f.delete = *deleteFlag
 	f.question = *questionFlag
 	f.answer = *answerFlag
+	f.yes = *yesFlag
+	f.no = *noFlag
 	f.rest = flag.Args()
 
 	return f

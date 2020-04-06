@@ -63,3 +63,8 @@ func showQOrA(db *sql.DB, isQ bool) ierrori {
 
 	return nil
 }
+
+func yesOrNo(db *sql.DB, isYes bool) ierrori {
+
+	return false
+}
