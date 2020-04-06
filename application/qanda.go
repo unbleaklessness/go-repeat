@@ -59,3 +59,8 @@ func question(db *sql.DB) ierrori {
 
 	return nil
 }
+
+func answer(db *sql.DB) ierrori {
+
+	return nil
+}

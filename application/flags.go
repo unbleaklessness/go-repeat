@@ -8,6 +8,7 @@ type flags struct {
 	rename   string
 	delete   string
 	question bool
+	answer   bool
 	rest     []string
 }
 
@@ -19,6 +20,7 @@ func initializeFlags() flags {
 		renameFlag   *string
 		deleteFlag   *string
 		questionFlag *bool
+		answerFlag   *bool
 
 		f flags
 	)
@@ -28,6 +30,7 @@ func initializeFlags() flags {
 	renameFlag = flag.String("r", "", "Rename unit")
 	deleteFlag = flag.String("d", "", "Delete unit")
 	questionFlag = flag.Bool("q", false, "Show a question")
+	answerFlag = flag.Bool("a", false, "Show an answer")
 
 	flag.Parse()
 
@@ -36,6 +39,7 @@ func initializeFlags() flags {
 	f.rename = *renameFlag
 	f.delete = *deleteFlag
 	f.question = *questionFlag
+	f.answer = *answerFlag
 	f.rest = flag.Args()
 
 	return f
