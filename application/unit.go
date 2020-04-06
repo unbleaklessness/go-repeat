@@ -41,10 +41,10 @@ func newUnit(db *sql.DB, name string) ierrori {
 	}
 
 	_, e = db.Exec(`insert into units
-		(path, date, score, stage)
+		(path, date, stage)
 		values
-		($1, $2, $3, $4)
-	`, unitPath, now(), 0, 1)
+		($1, $2, $4)
+	`, unitPath, now(), 1)
 	if e != nil {
 		return thisError(e)
 	}
