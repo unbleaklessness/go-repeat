@@ -33,6 +33,11 @@ func dispatch(db *sql.DB, f flags) ierrori {
 		if ie != nil {
 			return ie
 		}
+	} else if f.answer {
+		ie = answer(db)
+		if ie != nil {
+			return ie
+		}
 	} else {
 		return ierror{m: "Unknown flag combination"}
 	}
