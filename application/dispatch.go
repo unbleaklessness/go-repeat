@@ -29,12 +29,12 @@ func dispatch(db *sql.DB, f flags) ierrori {
 			return ie
 		}
 	} else if f.question {
-		ie = question(db)
+		ie = showQOrA(db, true)
 		if ie != nil {
 			return ie
 		}
 	} else if f.answer {
-		ie = answer(db)
+		ie = showQOrA(db, false)
 		if ie != nil {
 			return ie
 		}

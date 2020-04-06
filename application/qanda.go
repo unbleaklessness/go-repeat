@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 )
 
-func question(db *sql.DB) ierrori {
+func showQOrA(db *sql.DB, isQ bool) ierrori {
 
 	var (
 		e         error
@@ -14,7 +14,7 @@ func question(db *sql.DB) ierrori {
 		rows      *sql.Rows
 		thisError func(e error) ierrori
 		unitPath  string
-		questions string
+		qOrAPath  string
 		files     []string
 		file      string
 		date      int64
@@ -39,9 +39,13 @@ func question(db *sql.DB) ierrori {
 		return thisError(e)
 	}
 
-	questions = filepath.Join(unitPath, questionsName)
+	if isQ {
+		qOrAPath = filepath.Join(unitPath, questionsName)
+	} else {
+		qOrAPath = filepath.Join(unitPath, answersName)
+	}
 
-	files, ie = listFiles(questions)
+	files, ie = listFiles(qOrAPath)
 	if ie != nil {
 		return thisError(ie)
 	}
@@ -56,11 +60,6 @@ func question(db *sql.DB) ierrori {
 			return thisError(e)
 		}
 	}
-
-	return nil
-}
-
-func answer(db *sql.DB) ierrori {
 
 	return nil
 }
