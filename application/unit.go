@@ -3,7 +3,6 @@ package main
 import (
 	"database/sql"
 	"os"
-	"path"
 	"path/filepath"
 )
 
@@ -24,19 +23,19 @@ func newUnit(db *sql.DB, name string) ierrori {
 	if e != nil {
 		return thisError(e)
 	}
-	unitPath = path.Join(currentDirectory, name)
+	unitPath = filepath.Join(currentDirectory, name)
 
 	e = os.MkdirAll(unitPath, os.ModePerm)
 	if e != nil {
 		return thisError(e)
 	}
 
-	e = os.MkdirAll(path.Join(unitPath, questionsName), os.ModePerm)
+	e = os.MkdirAll(filepath.Join(unitPath, questionsName), os.ModePerm)
 	if e != nil {
 		return thisError(e)
 	}
 
-	e = os.MkdirAll(path.Join(unitPath, answersName), os.ModePerm)
+	e = os.MkdirAll(filepath.Join(unitPath, answersName), os.ModePerm)
 	if e != nil {
 		return thisError(e)
 	}
