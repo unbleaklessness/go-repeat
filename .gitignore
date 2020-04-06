@@ -1,2 +1,5 @@
 .vscode/
 temporary/
+
+*.exe
+*.sqlite
