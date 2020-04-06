@@ -24,7 +24,7 @@ func dispatch(db *sql.DB, f flags) ierrori {
 			return ie
 		}
 	} else {
-		// Question user.
+		return ierror{m: "Unknown flag combination"}
 	}
 
 	return nil
