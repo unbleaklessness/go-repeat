@@ -99,13 +99,14 @@ func moveUnit(db *sql.DB, name string, newPath string) ierrori {
 		return ierror{m: "Could not move unit", e: e}
 	}
 
+	current, e = os.Getwd()
+	if e != nil {
+		return thisError(e)
+	}
+
 	unitPath = filepath.Join(current, name)
 
 	if !filepath.IsAbs(newPath) {
-		current, e = os.Getwd()
-		if e != nil {
-			return thisError(e)
-		}
 		newUnitPath = filepath.Join(current, newPath, name)
 	} else {
 		newUnitPath = filepath.Join(newPath, name)
