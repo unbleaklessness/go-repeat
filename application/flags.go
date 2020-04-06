@@ -3,20 +3,22 @@ package main
 import "flag"
 
 type flags struct {
-	new    string
-	move   string
-	rename string
-	delete string
-	rest   []string
+	new      string
+	move     string
+	rename   string
+	delete   string
+	question bool
+	rest     []string
 }
 
 func initializeFlags() flags {
 
 	var (
-		newFlag    *string
-		moveFlag   *string
-		renameFlag *string
-		deleteFlag *string
+		newFlag      *string
+		moveFlag     *string
+		renameFlag   *string
+		deleteFlag   *string
+		questionFlag *bool
 
 		f flags
 	)
@@ -25,6 +27,7 @@ func initializeFlags() flags {
 	moveFlag = flag.String("m", "", "Move unit")
 	renameFlag = flag.String("r", "", "Rename unit")
 	deleteFlag = flag.String("d", "", "Delete unit")
+	questionFlag = flag.Bool("q", false, "Show a question")
 
 	flag.Parse()
 
@@ -32,6 +35,7 @@ func initializeFlags() flags {
 	f.move = *moveFlag
 	f.rename = *renameFlag
 	f.delete = *deleteFlag
+	f.question = *questionFlag
 	f.rest = flag.Args()
 
 	return f
