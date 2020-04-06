@@ -12,6 +12,9 @@ func newUnit(db *sql.DB, name string) ierrori {
 		e                error
 		unitPath         string
 		currentDirectory string
+		stage            int
+		stages           []int64
+		date             int64
 		thisError        func(e error) ierrori
 	)
 
@@ -40,11 +43,15 @@ func newUnit(db *sql.DB, name string) ierrori {
 		return thisError(e)
 	}
 
+	stage = 0
+	stages = getStages()
+	date = now() + stages[stage]*secondsInDay
+
 	_, e = db.Exec(`insert into units
 		(path, date, stage)
 		values
 		($1, $2, $4)
-	`, unitPath, now(), 1)
+	`, unitPath, date, stage)
 	if e != nil {
 		return thisError(e)
 	}

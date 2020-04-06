@@ -66,5 +66,59 @@ func showQOrA(db *sql.DB, isQ bool) ierrori {
 
 func yesOrNo(db *sql.DB, isYes bool) ierrori {
 
-	return false
+	var (
+		e         error
+		rows      *sql.Rows
+		date      int64
+		newDate   int64
+		stage     int
+		newStage  int
+		stages    []int64
+		id        int
+		thisError func(e error) ierrori
+	)
+
+	thisError = func(e error) ierrori {
+		return ierror{m: "Could not answer a question", e: e}
+	}
+
+	rows, e = db.Query(`select id, min(date), stage from units`)
+	if e != nil {
+		return thisError(e)
+	}
+
+	if !rows.Next() {
+		return thisError(nil)
+	}
+
+	e = rows.Scan(&id, &date, &stage)
+	if e != nil {
+		return thisError(e)
+	}
+
+	stages = getStages()
+
+	if stage < 0 || stage >= len(stages) {
+		return thisError(nil)
+	}
+
+	if isYes {
+		if stage >= len(stages)-1 {
+			newStage = stage
+		} else {
+			newStage = stage + 1
+		}
+	} else {
+		newStage = 0
+	}
+
+	newDate = now() + stages[newStage]*secondsInDay
+
+	rows.Close()
+	_, e = db.Exec(`update units set date = $1, stage = $2 where id = $3`, newDate, newStage, id)
+	if e != nil {
+		return thisError(e)
+	}
+
+	return nil
 }
