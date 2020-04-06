@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"os"
 	"path"
+	"path/filepath"
 )
 
 func newUnit(db *sql.DB, name string) ierrori {
@@ -45,6 +46,39 @@ func newUnit(db *sql.DB, name string) ierrori {
 		values
 		($1, $2, $3, $4)
 	`, unitPath, now(), 0, 1)
+	if e != nil {
+		return thisError(e)
+	}
+
+	return nil
+}
+
+func deleteUnit(db *sql.DB, name string) ierrori {
+
+	var (
+		e         error
+		current   string
+		unitPath  string
+		thisError func(e error) ierrori
+	)
+
+	thisError = func(e error) ierrori {
+		return ierror{m: "Could not delete unit", e: e}
+	}
+
+	current, e = os.Getwd()
+	if e != nil {
+		return thisError(e)
+	}
+
+	unitPath = filepath.Join(current, name)
+
+	e = os.RemoveAll(unitPath)
+	if e != nil {
+		return thisError(e)
+	}
+
+	_, e = db.Exec(`delete from units where path = $1`, unitPath)
 	if e != nil {
 		return thisError(e)
 	}

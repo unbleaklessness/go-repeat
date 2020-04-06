@@ -13,6 +13,11 @@ func dispatch(db *sql.DB, f flags) ierrori {
 		if ie != nil {
 			return ie
 		}
+	} else if len(f.delete) > 0 {
+		ie = deleteUnit(db, f.delete)
+		if ie != nil {
+			return ie
+		}
 	} else {
 		// Question user.
 	}
