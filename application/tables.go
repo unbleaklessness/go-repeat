@@ -10,7 +10,6 @@ func createTables(db *sql.DB) ierrori {
 		id integer primary key autoincrement,
 		path text unique not null,
 		date integer not null,
-		score real not null,
 		stage integer not null
 	)`)
 	if e != nil {
