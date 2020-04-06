@@ -84,3 +84,49 @@ func deleteUnit(db *sql.DB, name string) ierrori {
 
 	return nil
 }
+
+func moveUnit(db *sql.DB, name string, newPath string) ierrori {
+
+	var (
+		e           error
+		current     string
+		unitPath    string
+		newUnitPath string
+		thisError   func(e error) ierrori
+	)
+
+	thisError = func(e error) ierrori {
+		return ierror{m: "Could not move unit", e: e}
+	}
+
+	unitPath = filepath.Join(current, name)
+
+	if !filepath.IsAbs(newPath) {
+		current, e = os.Getwd()
+		if e != nil {
+			return thisError(e)
+		}
+		newUnitPath = filepath.Join(current, newPath, name)
+	} else {
+		newUnitPath = filepath.Join(newPath, name)
+	}
+
+	if !directoryExists(newPath) {
+		e = os.MkdirAll(newPath, os.ModePerm)
+		if e != nil {
+			return thisError(e)
+		}
+	}
+
+	e = os.Rename(unitPath, newUnitPath)
+	if e != nil {
+		return thisError(e)
+	}
+
+	_, e = db.Exec(`update units set path = $1 where path = $2`, newUnitPath, unitPath)
+	if e != nil {
+		return thisError(e)
+	}
+
+	return nil
+}
