@@ -2,3 +2,4 @@
 temporary/
 
 *.exe
+*.sqlite
