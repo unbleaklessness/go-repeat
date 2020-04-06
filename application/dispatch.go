@@ -28,7 +28,7 @@ func dispatch(db *sql.DB, f flags) ierrori {
 		if ie != nil {
 			return ie
 		}
-	} else if {
+	} else if f.question {
 		ie = question(db)
 		if ie != nil {
 			return ie
