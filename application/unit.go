@@ -130,3 +130,38 @@ func moveUnit(db *sql.DB, name string, newPath string) ierrori {
 
 	return nil
 }
+
+func renameUnit(db *sql.DB, oldName string, newName string) ierrori {
+
+	var (
+		e           error
+		current     string
+		unitPath    string
+		newUnitPath string
+		thisError   func(e error) ierrori
+	)
+
+	thisError = func(e error) ierrori {
+		return ierror{m: "Could not rename unit", e: e}
+	}
+
+	current, e = os.Getwd()
+	if e != nil {
+		return thisError(e)
+	}
+
+	unitPath = filepath.Join(current, oldName)
+	newUnitPath = filepath.Join(current, newName)
+
+	e = os.Rename(unitPath, newUnitPath)
+	if e != nil {
+		return thisError(e)
+	}
+
+	_, e = db.Exec(`update units set path = $1 where path = $2`, newUnitPath, unitPath)
+	if e != nil {
+		return thisError(e)
+	}
+
+	return nil
+}

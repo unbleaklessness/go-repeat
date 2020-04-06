@@ -23,6 +23,11 @@ func dispatch(db *sql.DB, f flags) ierrori {
 		if ie != nil {
 			return ie
 		}
+	} else if len(f.rename) > 0 && len(f.rest) > 0 {
+		ie = renameUnit(db, f.rename, f.rest[0])
+		if ie != nil {
+			return ie
+		}
 	} else {
 		return ierror{m: "Unknown flag combination"}
 	}
