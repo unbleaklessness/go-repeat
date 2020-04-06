@@ -3,7 +3,7 @@ package main
 import (
 	"io/ioutil"
 	"os"
-	"path"
+	"path/filepath"
 )
 
 func directoryExists(p string) bool {
@@ -45,7 +45,7 @@ func listDirectories(p string) ([]string, ierrori) {
 
 	for _, info := range infos {
 		if info.IsDir() {
-			directories = append(directories, path.Join(p, info.Name()))
+			directories = append(directories, filepath.Join(p, info.Name()))
 		}
 	}
 
@@ -89,7 +89,7 @@ func listFiles(p string) ([]string, ierrori) {
 
 	for _, info := range infos {
 		if !info.IsDir() {
-			files = append(files, path.Join(p, info.Name()))
+			files = append(files, filepath.Join(p, info.Name()))
 		}
 	}
 
