@@ -18,6 +18,11 @@ func dispatch(db *sql.DB, f flags) ierrori {
 		if ie != nil {
 			return ie
 		}
+	} else if len(f.move) > 0 && len(f.rest) > 0 {
+		ie = moveUnit(db, f.move, f.rest[0])
+		if ie != nil {
+			return ie
+		}
 	} else {
 		// Question user.
 	}
