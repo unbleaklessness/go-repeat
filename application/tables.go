@@ -9,8 +9,7 @@ func createTables(db *sql.DB) ierrori {
 	_, e = db.Exec(`create table if not exists units (
 		id integer primary key autoincrement,
 		path text unique not null,
-		date text not null,
-		score real not null,
+		date integer not null,
 		stage integer not null
 	)`)
 	if e != nil {
