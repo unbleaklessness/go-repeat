@@ -4,7 +4,14 @@ import "database/sql"
 
 func createTables(db *sql.DB) ierrori {
 
-	var e error
+	var (
+		e         error
+		thisError func(e error) ierrori
+	)
+
+	thisError = func(e error) ierrori {
+		return ierror{m: "Could not create tables", e: e}
+	}
 
 	_, e = db.Exec(`create table if not exists units (
 		id integer primary key autoincrement,
@@ -13,7 +20,17 @@ func createTables(db *sql.DB) ierrori {
 		stage integer not null
 	)`)
 	if e != nil {
-		return ierror{m: "Could not create tables", e: e}
+		return thisError(e)
+	}
+
+	_, e = db.Exec(`create table if not exists defaults (
+		type integer unique not null,
+		command text not null,
+		data blob not null,
+		name text not null
+	)`)
+	if e != nil {
+		return thisError(e)
 	}
 
 	return nil
