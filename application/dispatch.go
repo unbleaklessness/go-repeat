@@ -13,6 +13,30 @@ func dispatch(db *sql.DB, f flags) ierrori {
 		if ie != nil {
 			return ie
 		}
+		if f.questionText {
+			ie = openDefault(db, f.new, true, textType)
+			if ie != nil {
+				return ie
+			}
+		}
+		if f.questionImage {
+			ie = openDefault(db, f.new, true, imageType)
+			if ie != nil {
+				return ie
+			}
+		}
+		if f.answerText {
+			ie = openDefault(db, f.new, false, textType)
+			if ie != nil {
+				return ie
+			}
+		}
+		if f.answerImage {
+			ie = openDefault(db, f.new, false, imageType)
+			if ie != nil {
+				return ie
+			}
+		}
 	} else if len(f.delete) > 0 {
 		ie = deleteUnit(db, f.delete)
 		if ie != nil {
@@ -45,6 +69,16 @@ func dispatch(db *sql.DB, f flags) ierrori {
 		}
 	} else if f.no {
 		ie = yesOrNo(db, false)
+		if ie != nil {
+			return ie
+		}
+	} else if len(f.defaultText) > 0 && len(f.rest) > 0 {
+		ie = setDefault(db, textType, f.defaultText, f.rest[0])
+		if ie != nil {
+			return ie
+		}
+	} else if len(f.defaultImage) > 0 && len(f.rest) > 0 {
+		ie = setDefault(db, imageType, f.defaultImage, f.rest[0])
 		if ie != nil {
 			return ie
 		}

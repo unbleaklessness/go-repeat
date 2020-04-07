@@ -61,7 +61,7 @@ func showQOrA(db *sql.DB, isQ bool) ierrori {
 	}
 
 	for _, file = range files {
-		_, e = exec.Command("cmd", "/c", "start", "", file).Output()
+		e = exec.Command("cmd", "/c", "start", "", file).Start()
 		if e != nil {
 			return thisError(e)
 		}
