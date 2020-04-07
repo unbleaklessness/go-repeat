@@ -17,12 +17,12 @@ const (
 	textType
 )
 
-func setDefault(db *sql.DB, t fileType, fileName string, command string) ierrori {
+func setDefault(db *sql.DB, fType fileType, fileName string, command string) ierrori {
 
 	var (
 		currentDirectory string
 		filePath         string
-		data             []byte
+		fileData         []byte
 		thisError        func(e error) ierrori
 		e                error
 	)
@@ -37,12 +37,12 @@ func setDefault(db *sql.DB, t fileType, fileName string, command string) ierrori
 	}
 	filePath = filepath.Join(currentDirectory, fileName)
 
-	data, e = ioutil.ReadFile(filePath)
+	fileData, e = ioutil.ReadFile(filePath)
 	if e != nil {
 		return thisError(e)
 	}
 
-	_, e = db.Exec(`delete from defaults where type = $1`, t)
+	_, e = db.Exec(`delete from defaults where type = $1`, fType)
 	if e != nil {
 		return thisError(e)
 	}
@@ -50,7 +50,7 @@ func setDefault(db *sql.DB, t fileType, fileName string, command string) ierrori
 	_, e = db.Exec(`insert into defaults
 		(type, command, data, name)
 		values
-		($1, $2, $3, $4)`, t, command, data, fileName)
+		($1, $2, $3, $4)`, fType, command, fileData, fileName)
 	if e != nil {
 		return thisError(e)
 	}
@@ -58,13 +58,13 @@ func setDefault(db *sql.DB, t fileType, fileName string, command string) ierrori
 	return nil
 }
 
-func openDefault(db *sql.DB, unitName string, isQ bool, t fileType) ierrori {
+func openDefault(db *sql.DB, unitName string, isQ bool, fType fileType) ierrori {
 
 	var (
 		e                error
 		thisError        func(e error) ierrori
 		rows             *sql.Rows
-		data             []byte
+		fileData         []byte
 		command          string
 		currentDirectory string
 		filePath         string
@@ -78,7 +78,7 @@ func openDefault(db *sql.DB, unitName string, isQ bool, t fileType) ierrori {
 		return ierror{m: "Could not open default file", e: e}
 	}
 
-	rows, e = db.Query(`select command, data, name from defaults where type = $1`, t)
+	rows, e = db.Query(`select command, data, name from defaults where type = $1`, fType)
 	if e != nil {
 		return thisError(e)
 	}
@@ -88,12 +88,12 @@ func openDefault(db *sql.DB, unitName string, isQ bool, t fileType) ierrori {
 		return thisError(nil)
 	}
 
-	e = rows.Scan(&command, &data, &fileName)
+	e = rows.Scan(&command, &fileData, &fileName)
 	if e != nil {
 		return thisError(e)
 	}
 
-	if len(command) < 1 {
+	if len(command) < 1 || len(fileName) < 1 {
 		return thisError(nil)
 	}
 
@@ -115,7 +115,7 @@ func openDefault(db *sql.DB, unitName string, isQ bool, t fileType) ierrori {
 
 	writer = bufio.NewWriter(file)
 
-	_, e = writer.Write(data)
+	_, e = writer.Write(fileData)
 	if e != nil {
 		return thisError(e)
 	}
