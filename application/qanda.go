@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"os/exec"
 	"path/filepath"
 )
@@ -37,6 +38,11 @@ func showQOrA(db *sql.DB, isQ bool) ierrori {
 	e = rows.Scan(&unitPath, &date)
 	if e != nil {
 		return thisError(e)
+	}
+
+	if date > now() {
+		fmt.Println("No units ready for Q&A")
+		return nil
 	}
 
 	if isQ {
@@ -94,6 +100,11 @@ func yesOrNo(db *sql.DB, isYes bool) ierrori {
 	e = rows.Scan(&id, &date, &stage)
 	if e != nil {
 		return thisError(e)
+	}
+
+	if date > now() {
+		fmt.Println("No units ready for Q&A")
+		return nil
 	}
 
 	stages = getStages()
