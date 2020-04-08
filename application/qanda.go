@@ -46,9 +46,9 @@ func showQOrA(db *sql.DB, isQ bool) ierrori {
 	}
 
 	if isQ {
-		qOrAPath = filepath.Join(unitPath, questionsName)
+		qOrAPath = filepath.Join(unitPath, questionDirectoryName)
 	} else {
-		qOrAPath = filepath.Join(unitPath, answersName)
+		qOrAPath = filepath.Join(unitPath, answerDirectoryName)
 	}
 
 	files, ie = listFiles(qOrAPath)

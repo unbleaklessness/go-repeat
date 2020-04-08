@@ -33,12 +33,12 @@ func newUnit(db *sql.DB, name string) ierrori {
 		return thisError(e)
 	}
 
-	e = os.MkdirAll(filepath.Join(unitPath, questionsName), os.ModePerm)
+	e = os.MkdirAll(filepath.Join(unitPath, questionDirectoryName), os.ModePerm)
 	if e != nil {
 		return thisError(e)
 	}
 
-	e = os.MkdirAll(filepath.Join(unitPath, answersName), os.ModePerm)
+	e = os.MkdirAll(filepath.Join(unitPath, answerDirectoryName), os.ModePerm)
 	if e != nil {
 		return thisError(e)
 	}

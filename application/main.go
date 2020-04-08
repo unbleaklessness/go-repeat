@@ -5,65 +5,170 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 
 	_ "github.com/mattn/go-sqlite3"
 )
 
 const (
-	questionsName        = "Q"
-	answersName          = "A"
-	databaseName         = "data.sqlite"
-	logFileName          = "log.txt"
-	projectDirectoryName = ".go-repeat"
+	questionDirectoryName      = "Q"
+	answerDirectoryName        = "A"
+	databaseFileName           = "Data.sqlite"
+	logFileName                = "log.txt"
+	configurationDirectoryName = ".go-repeat"
+	rootConfigurationFileName  = "root.txt"
 )
+
+func createConfigurationDirectory() ierrori {
+
+	var (
+		configurationDirectoryPath string
+		ie                         ierrori
+		e                          error
+	)
+
+	configurationDirectoryPath, ie = getConfigurationDirectoryPath()
+	if ie != nil {
+		return ie
+	}
+
+	e = os.MkdirAll(configurationDirectoryPath, os.ModePerm)
+	if e != nil {
+		return ierror{m: "Could not create configuration directory"}
+	}
+
+	return nil
+}
+
+func getDatabase() (*sql.DB, ierrori) {
+
+	var (
+		e                error
+		ie               ierrori
+		db               *sql.DB
+		databaesFilePath string
+	)
+
+	databaesFilePath, ie = getDatabaseFilePath()
+	if ie != nil {
+		return db, ie
+	}
+
+	db, e = sql.Open("sqlite3", databaesFilePath)
+	if e != nil {
+		return db, ierror{m: "Could not open database", e: e}
+	}
+
+	return db, nil
+}
+
+func getLogger() (*log.Logger, ierrori) {
+
+	var (
+		logger      *log.Logger
+		ie          ierrori
+		logFilePath string
+		logFile     *os.File
+		e           error
+	)
+
+	logFilePath, ie = getLogFilePath()
+	if ie != nil {
+		return logger, ie
+	}
+
+	logFile, e = os.OpenFile(logFilePath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
+	if e != nil {
+		return logger, ierror{m: "Could not create log file", e: e}
+	}
+
+	logger = log.New(logFile, "", log.Ldate|log.Ltime)
+
+	return logger, nil
+}
+
+func setRoot(f flags) ierrori {
+
+	var (
+		rootConfigurationFilePath string
+		ie                        ierrori
+		e                         error
+		rootConfigurationFile     *os.File
+	)
+
+	if len(f.setRoot) < 1 {
+		return nil
+	}
+
+	rootConfigurationFilePath, ie = getRootConfigurationFilePath()
+	if ie != nil {
+		return ie
+	}
+
+	if fileExists(rootConfigurationFilePath) {
+		e = os.Remove(rootConfigurationFilePath)
+		if e != nil {
+			return ierror{m: "Could not remove old root configuration file", e: e}
+		}
+	}
+
+	rootConfigurationFile, e = os.Create(rootConfigurationFilePath)
+	if e != nil {
+		return ierror{m: "Could not create a new root configuration file", e: e}
+	}
+
+	_, e = rootConfigurationFile.WriteString(f.setRoot)
+	if e != nil {
+		return ierror{m: "Could not save a new root directory", e: e}
+	}
+
+	e = rootConfigurationFile.Close()
+	if e != nil {
+		return ierror{m: "Could not close root configuration file", e: e}
+	}
+
+	return nil
+}
 
 func main() {
 
 	var (
-		e            error
-		ie           ierrori
-		flags        flags
-		db           *sql.DB
-		logger       *log.Logger
-		file         *os.File
-		databasePath string
-		projectPath  string
-		logPath string
-		home         string
+		ie     ierrori
+		flags  flags
+		db     *sql.DB
+		logger *log.Logger
 	)
 
 	flags = initializeFlags()
 
-	home, e = os.UserHomeDir()
-	if e != nil {
-		panic("Could not get user's home directory")
+	ie = createConfigurationDirectory()
+	if ie != nil {
+		fmt.Println(ie.Message())
+		return
 	}
 
-	projectPath = filepath.Join(home, projectDirectoryName)
-	e = os.MkdirAll(projectPath, os.ModePerm)
-	if e != nil {
-		panic("Could not create project directory in user's home")
+	ie = setRoot(flags)
+	if ie != nil {
+		fmt.Println(ie.Message())
+		return
 	}
 
-	databasePath = filepath.Join(projectPath, databaseName)
-	logPath = filepath.Join(projectPath, logFileName)
-
-	db, e = sql.Open("sqlite3", databasePath)
-	if e != nil {
-		panic("Could not open database")
+	db, ie = getDatabase()
+	if ie != nil {
+		fmt.Println(ie.Message())
+		return
 	}
 
-	e = createTables(db)
-	if e != nil {
-		panic("Could not create database tables")
+	logger, ie = getLogger()
+	if ie != nil {
+		fmt.Println(ie.Message())
+		return
 	}
 
-	file, e = os.OpenFile(logPath, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0644)
-	if e != nil {
-		panic("Could not create a log file")
+	ie = createTables(db)
+	if ie != nil {
+		fmt.Println(ie.Message())
+		return
 	}
-	logger = log.New(file, "", log.Ldate|log.Ltime)
 
 	ie = dispatch(db, flags)
 	if ie != nil {
