@@ -4,11 +4,13 @@ type ierrori interface {
 	Unwrap() error
 	Error() string
 	Message() string
+	Code() int
 }
 
 type ierror struct {
 	e error
 	m string
+	c int
 }
 
 func (e ierror) Unwrap() error {
@@ -24,4 +26,8 @@ func (e ierror) Error() string {
 
 func (e ierror) Message() string {
 	return e.m
+}
+
+func (e ierror) Code() int {
+	return e.c
 }

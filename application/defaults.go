@@ -103,9 +103,9 @@ func openDefault(db *sql.DB, unitName string, isQ bool, fType fileType) ierrori 
 	}
 
 	if isQ {
-		filePath = filepath.Join(currentDirectory, unitName, questionsName, fileName)
+		filePath = filepath.Join(currentDirectory, unitName, questionDirectoryName, fileName)
 	} else {
-		filePath = filepath.Join(currentDirectory, unitName, answersName, fileName)
+		filePath = filepath.Join(currentDirectory, unitName, answerDirectoryName, fileName)
 	}
 
 	file, e = os.Create(filePath)

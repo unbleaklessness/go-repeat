@@ -17,6 +17,7 @@ type flags struct {
 	answerImage   bool
 	defaultText   string
 	defaultImage  string
+	setRoot       string
 	rest          []string
 }
 
@@ -37,6 +38,7 @@ func initializeFlags() flags {
 		answerImageFlag   *bool
 		defaultTextFlag   *string
 		defaultImageFlag  *string
+		setRootFlag       *string
 
 		f flags
 	)
@@ -55,6 +57,7 @@ func initializeFlags() flags {
 	answerImageFlag = flag.Bool("a-image", false, "Open image editor for answer")
 	defaultTextFlag = flag.String("default-text", "", "Set default text file and command")
 	defaultImageFlag = flag.String("default-image", "", "Set default image file and command")
+	setRootFlag = flag.String("set-root", "", "Set root directory")
 
 	flag.Parse()
 
@@ -72,6 +75,7 @@ func initializeFlags() flags {
 	f.answerImage = *answerImageFlag
 	f.defaultText = *defaultTextFlag
 	f.defaultImage = *defaultImageFlag
+	f.setRoot = *setRootFlag
 	f.rest = flag.Args()
 
 	return f
