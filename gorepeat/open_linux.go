@@ -4,6 +4,6 @@ package main
 
 import "os/exec"
 
-func open(p string) error {
-	return exec.Command("xdg-open", p).Start()
+func open(path string) error {
+	return exec.Command("xdg-open", path).Start()
 }
