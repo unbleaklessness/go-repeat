@@ -205,9 +205,15 @@ func listTemplates() ierrori {
 		return ie
 	}
 
+	defaultInline, ie := readDefaultInline()
+	if ie != nil {
+		return ie
+	}
+
 	for i, template := range templates {
 		fmt.Printf("%d) %s / %s\n", i+1, template.Name, template.FileName)
 	}
+	fmt.Printf("Default inline: %s\n", defaultInline)
 
 	return nil
 }
