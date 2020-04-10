@@ -7,7 +7,8 @@ import (
 	"os"
 )
 
-func checkUnitUnixTime(unixTime int64) ierrori {
+func unitUnixTimeIsInFuture(unit unit) ierrori {
+	unixTime := unit.data.getUnixTime()
 	if unixTime > now() {
 		message := fmt.Sprintf("No Q&A available, next one will be at %s", fromUnix(unixTime))
 		return ierror{m: message}
@@ -27,9 +28,13 @@ func openQOrA(isQuestion bool) ierrori {
 		return ierror{m: "Could not find unit with least time"}
 	}
 
-	ie = checkUnitUnixTime(unit.data.UnixTime)
+	ie = unitUnixTimeIsInFuture(unit)
 	if ie != nil {
 		return ie
+	}
+
+	if unit.data.getInverse() {
+		isQuestion = !isQuestion
 	}
 
 	if isQuestion {
@@ -63,19 +68,16 @@ func yesOrNo(isYes bool) ierrori {
 		return ierror{m: "Could not find unit with least time"}
 	}
 
-	ie = checkUnitUnixTime(unit.data.UnixTime)
+	ie = unitUnixTimeIsInFuture(unit)
 	if ie != nil {
 		return ie
 	}
 
-	newStage := 0
-
 	if isYes {
-		newStage = nextStage(unit.data.Stage)
+		unit.data.nextStage()
+	} else {
+		unit.data.previousStage()
 	}
-
-	unit.data.UnixTime = unixTimeForStage(newStage)
-	unit.data.Stage = newStage
 
 	unitDataBytes, e := json.Marshal(unit.data)
 	if e != nil {

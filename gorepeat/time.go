@@ -3,7 +3,8 @@ package main
 import "time"
 
 const (
-	secondsInADay = 86400
+	secondsInDay  = 86400
+	secondsInHour = 3600
 	timeLayout    = "2006-01-02 15:04:05"
 )
 

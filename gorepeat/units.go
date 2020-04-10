@@ -9,8 +9,11 @@ import (
 )
 
 type unitData struct {
-	UnixTime int64
-	Stage    int
+	UnixTime        int64
+	Stage           int
+	Inverse         bool
+	InverseUnixTime int64
+	InverseStage    int
 }
 
 type unit struct {
@@ -23,7 +26,71 @@ type unit struct {
 	answerDirectoryPath   string
 }
 
-func newUnit(unitDirectoryPath string) ierrori {
+func (u *unitData) getInverse() bool {
+	return u.InverseUnixTime < u.UnixTime && u.Inverse
+}
+
+func (u *unitData) getStage() int {
+	if u.getInverse() {
+		return u.InverseStage
+	}
+	return u.Stage
+}
+
+func (u *unitData) getUnixTime() int64 {
+	if u.getInverse() {
+		return u.InverseUnixTime
+	}
+	return u.UnixTime
+}
+
+func (u *unitData) setInverse(inverse bool) {
+	u.Inverse = inverse
+}
+
+func (u *unitData) setStage(stage int) {
+	if u.getInverse() {
+		u.InverseStage = stage
+		return
+	}
+	u.Stage = stage
+}
+
+func (u *unitData) setUnixTime(unixTime int64) {
+	if u.getInverse() {
+		u.InverseUnixTime = unixTime
+		return
+	}
+	u.UnixTime = unixTime
+}
+
+func (u *unitData) nextStage() {
+	if u.getInverse() {
+		u.InverseStage++
+		if u.InverseStage >= len(stages) {
+			u.InverseStage--
+		}
+		u.InverseUnixTime = inverseUnixTimeForStage(u.InverseStage)
+		return
+	}
+	u.Stage++
+	if u.Stage >= len(stages) {
+		u.Stage--
+	}
+	u.UnixTime = unixTimeForStage(u.Stage)
+}
+
+func (u *unitData) previousStage() {
+	if u.getInverse() {
+		u.InverseStage = 0
+		u.InverseUnixTime = inverseUnixTimeForStage(u.InverseStage)
+		return
+	}
+	u.Stage = 0
+	u.UnixTime = unixTimeForStage(u.Stage)
+}
+
+func newUnit(unitDirectoryPath string, isInverse bool) ierrori {
 
 	unitDirectoryPath = filepath.Clean(unitDirectoryPath)
 
@@ -45,8 +112,11 @@ func newUnit(unitDirectoryPath string) ierrori {
 	stage := 0
 
 	unitData := unitData{
-		UnixTime: unixTimeForStage(stage),
-		Stage:    stage,
+		UnixTime:        unixTimeForStage(stage),
+		Stage:           stage,
+		Inverse:         isInverse,
+		InverseUnixTime: inverseUnixTimeForStage(stage),
+		InverseStage:    stage,
 	}
 
 	unitDataBytes, e := json.Marshal(unitData)
@@ -93,6 +163,20 @@ func findUnits() ([]unit, ierrori) {
 				return findSubUnits(directoryPath)
 			}
 
+			questionFilePaths, ie := listFiles(questionDirectoryPath)
+			if ie != nil {
+				return findSubUnits(directoryPath)
+			}
+
+			answerFilePaths, ie := listFiles(answerDirectoryPath)
+			if ie != nil {
+				return findSubUnits(directoryPath)
+			}
+
+			if len(questionFilePaths) < 1 || len(answerFilePaths) < 1 {
+				return findSubUnits(directoryPath)
+			}
+
 			unitData := unitData{}
 
 			unitDataBytes, e := ioutil.ReadFile(unitDataFilePath)
@@ -105,21 +189,8 @@ func findUnits() ([]unit, ierrori) {
 				return findSubUnits(directoryPath)
 			}
 
-			if unitData.Stage < 0 || unitData.Stage >= len(stages) || unitData.UnixTime < 0 {
-				return findSubUnits(directoryPath)
-			}
-
-			questionFilePaths, ie := listFiles(questionDirectoryPath)
-			if ie != nil {
-				return findSubUnits(directoryPath)
-			}
-
-			answerFilePaths, ie := listFiles(answerDirectoryPath)
-			if ie != nil {
-				return findSubUnits(directoryPath)
-			}
-
-			if len(questionFilePaths) < 1 || len(answerFilePaths) < 1 {
+			if unitData.Stage < 0 || unitData.Stage >= len(stages) || unitData.UnixTime < 0 ||
+				unitData.InverseStage < 0 || unitData.InverseStage >= len(stages) || unitData.InverseUnixTime < 0 {
 				return findSubUnits(directoryPath)
 			}
 
@@ -156,7 +227,7 @@ func unitWithLeastUnixTime(units []unit) (unit, bool) {
 	unitIndex := 0
 	leastUnixTime := int64(math.MaxInt64)
 	for i, unit := range units {
-		unixTime := unit.data.UnixTime
+		unixTime := unit.data.getUnixTime()
 		if unixTime < leastUnixTime {
 			leastUnixTime = unixTime
 			unitIndex = i

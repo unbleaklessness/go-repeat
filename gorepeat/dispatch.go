@@ -3,7 +3,7 @@ package main
 func dispatch(f flags) ierrori {
 
 	if len(f.new) > 0 {
-		ie := newUnit(f.new)
+		ie := newUnit(f.new, f.inverse)
 		if ie != nil {
 			return ie
 		}
