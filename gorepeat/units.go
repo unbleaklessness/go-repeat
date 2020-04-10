@@ -131,6 +131,72 @@ func newUnit(unitDirectoryPath string, isInverse bool) ierrori {
 	return nil
 }
 
+func getUnit(unitPath string) (unit, ierrori) {
+
+	questionDirectoryPath := filepath.Join(unitPath, questionDirectoryName)
+	answerDirectoryPath := filepath.Join(unitPath, answerDirectoryName)
+	unitDataFilePath := filepath.Join(unitPath, unitDataFileName)
+
+	if !directoryExists(questionDirectoryPath) {
+		return unit{}, ierror{m: "Could not get unit, questions directory does not exists"}
+	}
+
+	if !directoryExists(answerDirectoryPath) {
+		return unit{}, ierror{m: "Could not get unit, answers directory does not exists"}
+	}
+
+	if !fileExists(unitDataFilePath) {
+		return unit{}, ierror{m: "Could not get unit, data file does not exists"}
+	}
+
+	questionFilePaths, ie := listFiles(questionDirectoryPath)
+	if ie != nil {
+		return unit{}, ierror{m: "Could not list files in unit's questions directory", e: ie}
+	}
+
+	answerFilePaths, ie := listFiles(answerDirectoryPath)
+	if ie != nil {
+		return unit{}, ierror{m: "Could not list files in unit's answers directory", e: ie}
+	}
+
+	if len(questionFilePaths) < 1 {
+		return unit{}, ierror{m: "No files in unit's questions directory"}
+	}
+
+	if len(answerFilePaths) < 1 {
+		return unit{}, ierror{m: "No files in unit's answers directory"}
+	}
+
+	unitData := unitData{}
+
+	unitDataBytes, e := ioutil.ReadFile(unitDataFilePath)
+	if e != nil {
+		return unit{}, ierror{m: "Could not read unit's data file", e: e}
+	}
+
+	e = json.Unmarshal(unitDataBytes, &unitData)
+	if e != nil {
+		return unit{}, ierror{m: "Could not read unit's data file", e: e}
+	}
+
+	if unitData.Stage < 0 || unitData.Stage >= len(stages) || unitData.UnixTime < 0 ||
+		unitData.InverseStage < 0 || unitData.InverseStage >= len(stages) || unitData.InverseUnixTime < 0 {
+		return unit{}, ierror{m: "Unit's data file is invalid"}
+	}
+
+	unit := unit{
+		path:                  unitPath,
+		dataFilePath:          unitDataFilePath,
+		data:                  unitData,
+		questionFilePaths:     questionFilePaths,
+		answerFilePaths:       answerFilePaths,
+		questionDirectoryPath: questionDirectoryPath,
+		answerDirectoryPath:   answerDirectoryPath,
+	}
+
+	return unit, nil
+}
+
 func findUnits() ([]unit, ierrori) {
 
 	currentDirectoryPath, e := os.Getwd()
@@ -155,54 +221,11 @@ func findUnits() ([]unit, ierrori) {
 
 		for _, directoryPath := range directoryPaths {
 
-			questionDirectoryPath := filepath.Join(directoryPath, questionDirectoryName)
-			answerDirectoryPath := filepath.Join(directoryPath, answerDirectoryName)
-			unitDataFilePath := filepath.Join(directoryPath, unitDataFileName)
-
-			if !directoryExists(questionDirectoryPath) || !directoryExists(answerDirectoryPath) || !fileExists(unitDataFilePath) {
-				return findSubUnits(directoryPath)
-			}
-
-			questionFilePaths, ie := listFiles(questionDirectoryPath)
+			unit, ie := getUnit(directoryPath)
 			if ie != nil {
 				return findSubUnits(directoryPath)
 			}
 
-			answerFilePaths, ie := listFiles(answerDirectoryPath)
-			if ie != nil {
-				return findSubUnits(directoryPath)
-			}
-
-			if len(questionFilePaths) < 1 || len(answerFilePaths) < 1 {
-				return findSubUnits(directoryPath)
-			}
-
-			unitData := unitData{}
-
-			unitDataBytes, e := ioutil.ReadFile(unitDataFilePath)
-			if e != nil {
-				return findSubUnits(directoryPath)
-			}
-
-			e = json.Unmarshal(unitDataBytes, &unitData)
-			if e != nil {
-				return findSubUnits(directoryPath)
-			}
-
-			if unitData.Stage < 0 || unitData.Stage >= len(stages) || unitData.UnixTime < 0 ||
-				unitData.InverseStage < 0 || unitData.InverseStage >= len(stages) || unitData.InverseUnixTime < 0 {
-				return findSubUnits(directoryPath)
-			}
-
-			unit := unit{
-				path:                  directoryPath,
-				dataFilePath:          unitDataFilePath,
-				data:                  unitData,
-				questionFilePaths:     questionFilePaths,
-				answerFilePaths:       answerFilePaths,
-				questionDirectoryPath: questionDirectoryPath,
-				answerDirectoryPath:   answerDirectoryPath,
-			}
 			units = append(units, unit)
 		}
 
@@ -235,4 +258,26 @@ func unitWithLeastUnixTime(units []unit) (unit, bool) {
 	}
 
 	return units[unitIndex], true
+}
+
+func toggleInverse(unitPath string) ierrori {
+
+	unit, ie := getUnit(unitPath)
+	if ie != nil {
+		return ie
+	}
+
+	unit.data.Inverse = !unit.data.Inverse
+
+	unitDataBytes, e := json.Marshal(unit.data)
+	if e != nil {
+		return ierror{m: "Could not update unit's data", e: e}
+	}
+
+	e = ioutil.WriteFile(unit.dataFilePath, unitDataBytes, os.ModePerm)
+	if e != nil {
+		return ierror{m: "Could not update unit's data", e: e}
+	}
+
+	return nil
 }

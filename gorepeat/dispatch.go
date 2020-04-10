@@ -59,6 +59,11 @@ func dispatch(f flags) ierrori {
 		if ie != nil {
 			return ie
 		}
+	} else if f.inverse && len(f.rest) > 0 {
+		ie := toggleInverse(f.rest[0])
+		if ie != nil {
+			return ie
+		}
 	} else {
 		return ierror{m: "Unknown flag combination"}
 	}
