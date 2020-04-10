@@ -8,6 +8,32 @@ import (
 	"path/filepath"
 )
 
+type template struct {
+	Name     string
+	FileName string
+	Bytes    []byte
+}
+
+func createTemplates() ierrori {
+
+	templatesFilePath, ie := getTemplatesFilePath()
+	if ie != nil {
+		return ie
+	}
+
+	templateFile, e := os.OpenFile(templatesFilePath, os.O_RDONLY|os.O_CREATE, os.ModePerm)
+	if e != nil {
+		return ierror{m: "Could not create templates file", e: e}
+	}
+
+	e = templateFile.Close()
+	if e != nil {
+		return ierror{m: "Could not close templates file", e: e}
+	}
+
+	return nil
+}
+
 func findTemplate(name string, templates []template) (template, int) {
 
 	for i, template := range templates {
@@ -170,6 +196,28 @@ func listTemplates() ierrori {
 
 	for i, template := range templates {
 		fmt.Printf("%d) %s / %s\n", i+1, template.Name, template.FileName)
+	}
+
+	return nil
+}
+
+func renameTemplate(oldName string, newName string) ierrori {
+
+	templates, ie := readTemplates()
+	if ie != nil {
+		return ie
+	}
+
+	_, i := findTemplate(oldName, templates)
+	if i == -1 {
+		return ierror{m: "Could not find template with provided name"}
+	}
+
+	templates[i].Name = newName
+
+	ie = writeTemplates(templates)
+	if ie != nil {
+		return ie
 	}
 
 	return nil

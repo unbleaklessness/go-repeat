@@ -20,3 +20,11 @@ func getTemplatesFilePath() (string, ierrori) {
 	}
 	return filepath.Join(configurationDirectoryPath, templatesFileName), nil
 }
+
+func getLogFilePath() (string, ierrori) {
+	configurationDirectoryPath, ie := getConfigurationDirectoryPath()
+	if ie != nil {
+		return configurationDirectoryPath, ie
+	}
+	return filepath.Join(configurationDirectoryPath, logFileName), nil
+}

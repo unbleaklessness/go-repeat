@@ -54,6 +54,11 @@ func dispatch(f flags) ierrori {
 		if ie != nil {
 			return ie
 		}
+	} else if f.renameTemplate && len(f.rest) > 1 {
+		ie := renameTemplate(f.rest[0], f.rest[1])
+		if ie != nil {
+			return ie
+		}
 	} else {
 		return ierror{m: "Unknown flag combination"}
 	}

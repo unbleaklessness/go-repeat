@@ -15,6 +15,7 @@ type flags struct {
 	questionInline string
 	answerInline   string
 	listTemplates  bool
+	renameTemplate bool
 
 	rest []string
 }
@@ -33,6 +34,7 @@ func parseFlags() flags {
 	questionInlineFlag := flag.String("q-is", "", "Inline question to template file")
 	answerInlineFlag := flag.String("a-is", "", "Inline answer to template file")
 	listTemplatesFlag := flag.Bool("list-templates", false, "List template files")
+	renameTemplateFlag := flag.Bool("rename-template", false, "Rename a template")
 
 	flag.Parse()
 
@@ -50,6 +52,7 @@ func parseFlags() flags {
 	f.questionInline = *questionInlineFlag
 	f.answerInline = *answerInlineFlag
 	f.listTemplates = *listTemplatesFlag
+	f.renameTemplate = *renameTemplateFlag
 	f.rest = flag.Args()
 
 	return f
