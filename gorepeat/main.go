@@ -7,11 +7,12 @@ import (
 )
 
 const (
-	questionDirectoryName      = "Q"
-	answerDirectoryName        = "A"
+	aDirectoryName             = "A"
+	bDirectoryName             = "B"
 	unitDataFileName           = "D.json"
 	logFileName                = "log.txt"
 	templatesFileName          = "templates.json"
+	defaultInlineFileName      = "inline.txt"
 	configurationDirectoryName = ".go-repeat"
 )
 

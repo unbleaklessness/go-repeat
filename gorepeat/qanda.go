@@ -16,7 +16,7 @@ func unitUnixTimeIsInFuture(unit unit) ierrori {
 	return nil
 }
 
-func openQOrA(isQuestion bool) ierrori {
+func openQuestionOrAnswer(isQuestion bool) ierrori {
 
 	units, ie := findUnits()
 	if ie != nil {
@@ -25,7 +25,7 @@ func openQOrA(isQuestion bool) ierrori {
 
 	unit, ok := unitWithLeastUnixTime(units)
 	if !ok {
-		return ierror{m: "Could not find unit with least time"}
+		return ierror{m: "Could not find unit with appropriate time"}
 	}
 
 	ie = unitUnixTimeIsInFuture(unit)
@@ -33,22 +33,24 @@ func openQOrA(isQuestion bool) ierrori {
 		return ie
 	}
 
+	aOrB := isQuestion
+
 	if unit.data.getInverse() {
-		isQuestion = !isQuestion
+		aOrB = !aOrB
 	}
 
-	if isQuestion {
-		for _, questionFilePath := range unit.questionFilePaths {
-			e := open(questionFilePath)
+	if aOrB {
+		for _, aFilePath := range unit.aFilePaths {
+			e := open(aFilePath)
 			if e != nil {
-				return ierror{m: "Could not open question file", e: e}
+				return ierror{m: "Could not open A association file", e: e}
 			}
 		}
 	} else {
-		for _, answerFilePath := range unit.answerFilePaths {
-			e := open(answerFilePath)
+		for _, bFilePath := range unit.bFilePaths {
+			e := open(bFilePath)
 			if e != nil {
-				return ierror{m: "Could not open answer file", e: e}
+				return ierror{m: "Could not open B association file", e: e}
 			}
 		}
 	}
@@ -56,7 +58,7 @@ func openQOrA(isQuestion bool) ierrori {
 	return nil
 }
 
-func yesOrNo(isYes bool) ierrori {
+func answer(correct bool) ierrori {
 
 	units, ie := findUnits()
 	if ie != nil {
@@ -65,7 +67,7 @@ func yesOrNo(isYes bool) ierrori {
 
 	unit, ok := unitWithLeastUnixTime(units)
 	if !ok {
-		return ierror{m: "Could not find unit with least time"}
+		return ierror{m: "Could not find unit with appropriate time"}
 	}
 
 	ie = unitUnixTimeIsInFuture(unit)
@@ -73,7 +75,7 @@ func yesOrNo(isYes bool) ierrori {
 		return ie
 	}
 
-	if isYes {
+	if correct {
 		unit.data.nextStage()
 	} else {
 		unit.data.previousStage()

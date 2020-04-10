@@ -7,35 +7,31 @@ func dispatch(f flags) ierrori {
 		if ie != nil {
 			return ie
 		}
-		if len(f.questionAs) > 0 {
-			ie := useTemplate(f.new, f.questionAs, true, f.questionInline)
-			if ie != nil {
-				return ie
-			}
+		ie = useTemplate(f.new, f.AAs, true, f.AInline)
+		if ie != nil {
+			return ie
 		}
-		if len(f.answerAs) > 0 {
-			ie := useTemplate(f.new, f.answerAs, false, f.answerInline)
-			if ie != nil {
-				return ie
-			}
+		ie = useTemplate(f.new, f.BAs, false, f.BInline)
+		if ie != nil {
+			return ie
 		}
 	} else if f.question {
-		ie := openQOrA(true)
+		ie := openQuestionOrAnswer(true)
 		if ie != nil {
 			return ie
 		}
 	} else if f.answer {
-		ie := openQOrA(false)
+		ie := openQuestionOrAnswer(false)
 		if ie != nil {
 			return ie
 		}
 	} else if f.yes {
-		ie := yesOrNo(true)
+		ie := answer(true)
 		if ie != nil {
 			return ie
 		}
 	} else if f.no {
-		ie := yesOrNo(false)
+		ie := answer(false)
 		if ie != nil {
 			return ie
 		}
@@ -61,6 +57,11 @@ func dispatch(f flags) ierrori {
 		}
 	} else if f.inverse && len(f.rest) > 0 {
 		ie := toggleInverse(f.rest[0])
+		if ie != nil {
+			return ie
+		}
+	} else if len(f.setDefaultInline) > 0 {
+		ie := setDefaultInline(f.setDefaultInline)
 		if ie != nil {
 			return ie
 		}

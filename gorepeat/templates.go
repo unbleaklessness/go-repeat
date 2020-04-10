@@ -121,11 +121,22 @@ func addTemplate(name string, p string) ierrori {
 	return nil
 }
 
-func useTemplate(unitDirectoryPath string, templateName string, isQuestion bool, inline string) ierrori {
+func useTemplate(unitDirectoryPath string, templateName string, aOrB bool, inline string) ierrori {
+
+	if len(templateName) < 1 && len(inline) < 1 {
+		return nil
+	}
 
 	templates, ie := readTemplates()
 	if ie != nil {
 		return ie
+	}
+
+	if len(templateName) < 1 {
+		templateName, ie = readDefaultInline()
+		if ie != nil {
+			return ierror{m: "Default inline is not set up", e: ie}
+		}
 	}
 
 	template, i := findTemplate(templateName, templates)
@@ -135,10 +146,10 @@ func useTemplate(unitDirectoryPath string, templateName string, isQuestion bool,
 
 	templateFilePath := ""
 
-	if isQuestion {
-		templateFilePath = filepath.Join(unitDirectoryPath, questionDirectoryName, template.FileName)
+	if aOrB {
+		templateFilePath = filepath.Join(unitDirectoryPath, aDirectoryName, template.FileName)
 	} else {
-		templateFilePath = filepath.Join(unitDirectoryPath, answerDirectoryName, template.FileName)
+		templateFilePath = filepath.Join(unitDirectoryPath, bDirectoryName, template.FileName)
 	}
 
 	data := []byte{}
@@ -154,7 +165,7 @@ func useTemplate(unitDirectoryPath string, templateName string, isQuestion bool,
 		return ierror{m: "Could not write template file", e: e}
 	}
 
-	if len(inline) <= 0 {
+	if len(inline) < 1 {
 		e = open(templateFilePath)
 		if e != nil {
 			return ierror{m: "Could not open template file", e: e}
@@ -221,4 +232,44 @@ func renameTemplate(oldName string, newName string) ierrori {
 	}
 
 	return nil
+}
+
+func setDefaultInline(templateName string) ierrori {
+
+	defaultInlineFilePath, ie := getDefaultInlineFilePath()
+	if ie != nil {
+		return ie
+	}
+
+	templates, ie := readTemplates()
+	if ie != nil {
+		return ie
+	}
+
+	_, i := findTemplate(templateName, templates)
+	if i == -1 {
+		return ierror{m: "Template with given name is not found"}
+	}
+
+	e := ioutil.WriteFile(defaultInlineFilePath, []byte(templateName), os.ModePerm)
+	if e != nil {
+		return ierror{m: "Could not save default inline", e: e}
+	}
+
+	return nil
+}
+
+func readDefaultInline() (string, ierrori) {
+
+	defaultInlineFilePath, ie := getDefaultInlineFilePath()
+	if ie != nil {
+		return "", ie
+	}
+
+	defaultInlineBytes, e := ioutil.ReadFile(defaultInlineFilePath)
+	if e != nil {
+		return "", ierror{m: "Could not read default inline"}
+	}
+
+	return string(defaultInlineBytes), nil
 }

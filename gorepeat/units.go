@@ -17,13 +17,13 @@ type unitData struct {
 }
 
 type unit struct {
-	path                  string
-	dataFilePath          string
-	data                  unitData
-	questionFilePaths     []string
-	answerFilePaths       []string
-	questionDirectoryPath string
-	answerDirectoryPath   string
+	path           string
+	dataFilePath   string
+	data           unitData
+	aFilePaths     []string
+	bFilePaths     []string
+	aDirectoryPath string
+	bDirectoryPath string
 }
 
 func (u *unitData) getInverse() bool {
@@ -99,14 +99,14 @@ func newUnit(unitDirectoryPath string, isInverse bool) ierrori {
 		return ierror{m: "Could not create unit directory", e: e}
 	}
 
-	e = os.MkdirAll(filepath.Join(unitDirectoryPath, questionDirectoryName), os.ModePerm)
+	e = os.MkdirAll(filepath.Join(unitDirectoryPath, aDirectoryName), os.ModePerm)
 	if e != nil {
-		return ierror{m: "Could not create unit question directory", e: e}
+		return ierror{m: "Could not create unit A association directory", e: e}
 	}
 
-	e = os.MkdirAll(filepath.Join(unitDirectoryPath, answerDirectoryName), os.ModePerm)
+	e = os.MkdirAll(filepath.Join(unitDirectoryPath, bDirectoryName), os.ModePerm)
 	if e != nil {
-		return ierror{m: "Could not create unit answer directory", e: e}
+		return ierror{m: "Could not create unit B association directory", e: e}
 	}
 
 	stage := 0
@@ -133,38 +133,38 @@ func newUnit(unitDirectoryPath string, isInverse bool) ierrori {
 
 func getUnit(unitPath string) (unit, ierrori) {
 
-	questionDirectoryPath := filepath.Join(unitPath, questionDirectoryName)
-	answerDirectoryPath := filepath.Join(unitPath, answerDirectoryName)
+	aDirectoryPath := filepath.Join(unitPath, aDirectoryName)
+	bDirectoryPath := filepath.Join(unitPath, bDirectoryName)
 	unitDataFilePath := filepath.Join(unitPath, unitDataFileName)
 
-	if !directoryExists(questionDirectoryPath) {
-		return unit{}, ierror{m: "Could not get unit, questions directory does not exists"}
+	if !directoryExists(aDirectoryPath) {
+		return unit{}, ierror{m: "Could not get unit, A association directory does not exists"}
 	}
 
-	if !directoryExists(answerDirectoryPath) {
-		return unit{}, ierror{m: "Could not get unit, answers directory does not exists"}
+	if !directoryExists(bDirectoryPath) {
+		return unit{}, ierror{m: "Could not get unit, B association directory does not exists"}
 	}
 
 	if !fileExists(unitDataFilePath) {
 		return unit{}, ierror{m: "Could not get unit, data file does not exists"}
 	}
 
-	questionFilePaths, ie := listFiles(questionDirectoryPath)
+	aFilePaths, ie := listFiles(aDirectoryPath)
 	if ie != nil {
-		return unit{}, ierror{m: "Could not list files in unit's questions directory", e: ie}
+		return unit{}, ierror{m: "Could not list files in unit's A association directory", e: ie}
 	}
 
-	answerFilePaths, ie := listFiles(answerDirectoryPath)
+	bFilePaths, ie := listFiles(bDirectoryPath)
 	if ie != nil {
-		return unit{}, ierror{m: "Could not list files in unit's answers directory", e: ie}
+		return unit{}, ierror{m: "Could not list files in unit's B association directory", e: ie}
 	}
 
-	if len(questionFilePaths) < 1 {
-		return unit{}, ierror{m: "No files in unit's questions directory"}
+	if len(aFilePaths) < 1 {
+		return unit{}, ierror{m: "No files in unit's A association directory"}
 	}
 
-	if len(answerFilePaths) < 1 {
-		return unit{}, ierror{m: "No files in unit's answers directory"}
+	if len(bFilePaths) < 1 {
+		return unit{}, ierror{m: "No files in unit's B association directory"}
 	}
 
 	unitData := unitData{}
@@ -185,13 +185,13 @@ func getUnit(unitPath string) (unit, ierrori) {
 	}
 
 	unit := unit{
-		path:                  unitPath,
-		dataFilePath:          unitDataFilePath,
-		data:                  unitData,
-		questionFilePaths:     questionFilePaths,
-		answerFilePaths:       answerFilePaths,
-		questionDirectoryPath: questionDirectoryPath,
-		answerDirectoryPath:   answerDirectoryPath,
+		path:           unitPath,
+		dataFilePath:   unitDataFilePath,
+		data:           unitData,
+		aFilePaths:     aFilePaths,
+		bFilePaths:     bFilePaths,
+		aDirectoryPath: aDirectoryPath,
+		bDirectoryPath: bDirectoryPath,
 	}
 
 	return unit, nil

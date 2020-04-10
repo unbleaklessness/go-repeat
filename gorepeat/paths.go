@@ -28,3 +28,11 @@ func getLogFilePath() (string, ierrori) {
 	}
 	return filepath.Join(configurationDirectoryPath, logFileName), nil
 }
+
+func getDefaultInlineFilePath() (string, ierrori) {
+	configurationDirectoryPath, ie := getConfigurationDirectoryPath()
+	if ie != nil {
+		return configurationDirectoryPath, ie
+	}
+	return filepath.Join(configurationDirectoryPath, defaultInlineFileName), nil
+}
