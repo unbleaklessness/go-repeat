@@ -10,6 +10,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -17,7 +18,6 @@ var stages = []int64{0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 9
 
 type association struct {
 	ID    uint64
-	Name  string
 	Time  int64
 	Stage int
 }
@@ -284,12 +284,19 @@ func addAssociation(node1 node, node2 node) (node, bool) {
 		ID:    node2.ID,
 		Stage: 0,
 		Time:  now(),
-		Name:  node1.Name + " -> " + node2.Name,
 	}
 
 	node1.Associations = append(node1.Associations, a)
 
 	return node1, true
+}
+
+func associationName(node1 node, node2 node) string {
+	return node1.Name + " -> " + node2.Name
+}
+
+func prepareName(name string) string {
+	return strings.Trim(name, " \n\r\t")
 }
 
 func main() {
@@ -307,6 +314,8 @@ func main() {
 	no := flag.Bool("no", false, "Incorrect answer")
 	unassociate := flag.String("unassociate", "", "Use with `-with` flag to unassociate two nodes")
 	uni := flag.Bool("uni", false, "Associate / unassociate both ways")
+	rename := flag.String("rename", "", "Rename a node")
+	to := flag.String("to", "", "Use with `-rename` to set new node name")
 
 	flag.Parse()
 
@@ -367,12 +376,13 @@ func main() {
 				continue
 			}
 
-			fmt.Printf("%d) %s || %s\n", i+1, a.Name, nn.directoryPath)
+			fmt.Printf("%d) %s || %s\n", i+1, associationName(n, nn), nn.directoryPath)
 		}
 
 	} else if len(*newNode) > 0 {
 
 		*newNode = filepath.Clean(*newNode)
+		*name = prepareName(*name)
 
 		e := writeNewNode(*newNode, *name)
 		if e != nil {
@@ -403,7 +413,13 @@ func main() {
 			return
 		}
 
-		fmt.Println(a.Name)
+		nn, ok := nodeWithID(nodes, a.ID)
+		if !ok {
+			fmt.Println("Could not find answer node")
+			return
+		}
+
+		fmt.Println(associationName(n, nn))
 
 		for _, filePath := range filePaths {
 			e := open(filePath)
@@ -538,6 +554,24 @@ func main() {
 		}
 
 		fmt.Println(n.Name)
+
+	} else if len(*rename) > 0 && len(*to) > 0 {
+
+		*rename = filepath.Clean(*rename)
+
+		n, ok := nodeWithPath(nodes, *rename)
+		if !ok {
+			fmt.Println("Node is not found")
+			return
+		}
+
+		n.Name = prepareName(*to)
+
+		e := n.update()
+		if e != nil {
+			fmt.Println("Could not update node")
+			return
+		}
 
 	} else {
 		fmt.Println("Unknown flags")
