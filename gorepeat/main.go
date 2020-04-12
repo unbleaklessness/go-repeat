@@ -316,6 +316,8 @@ func main() {
 	uni := flag.Bool("uni", false, "Associate / unassociate both ways")
 	rename := flag.String("rename", "", "Rename a node")
 	to := flag.String("to", "", "Use with `-rename` to set new node name")
+	text := flag.String("text", "", "Create text file in the unit with `-new-node` flag, or in currect directory if alone")
+	is := flag.String("is", "", "Use with `-text` flag to set text file content")
 
 	flag.Parse()
 
@@ -360,6 +362,8 @@ func main() {
 			}
 		}
 
+		return
+
 	} else if len(*listAssociations) > 0 {
 
 		*listAssociations = filepath.Clean(*listAssociations)
@@ -379,6 +383,8 @@ func main() {
 			fmt.Printf("%d) %s || %s\n", i+1, associationName(n, nn), nn.directoryPath)
 		}
 
+		return
+
 	} else if len(*newNode) > 0 {
 
 		*newNode = filepath.Clean(*newNode)
@@ -389,6 +395,16 @@ func main() {
 			fmt.Println("Could not create a node")
 			return
 		}
+
+		if len(*text) > 0 && len(*is) > 0 {
+			e := ioutil.WriteFile(filepath.Join(*newNode, *name, *text), []byte(*is), os.ModePerm)
+			if e != nil {
+				fmt.Println("Could not create text file")
+				return
+			}
+		}
+
+		return
 
 	} else if *question {
 
@@ -429,6 +445,8 @@ func main() {
 			}
 		}
 
+		return
+
 	} else if *answer {
 
 		_, a, nI, _ := associationWithLeastTime(nodes)
@@ -466,6 +484,8 @@ func main() {
 			}
 		}
 
+		return
+
 	} else if *yes {
 
 		n, a, nI, aI := associationWithLeastTime(nodes)
@@ -485,6 +505,8 @@ func main() {
 			return
 		}
 
+		return
+
 	} else if *no {
 
 		n, a, nI, aI := associationWithLeastTime(nodes)
@@ -503,6 +525,8 @@ func main() {
 			fmt.Println("Could not update node")
 			return
 		}
+
+		return
 
 	} else if len(*unassociate) > 0 && len(*with) > 0 {
 
@@ -543,6 +567,8 @@ func main() {
 			}
 		}
 
+		return
+
 	} else if len(*name) > 0 {
 
 		*name = filepath.Clean(*name)
@@ -554,6 +580,8 @@ func main() {
 		}
 
 		fmt.Println(n.Name)
+
+		return
 
 	} else if len(*rename) > 0 && len(*to) > 0 {
 
@@ -572,6 +600,20 @@ func main() {
 			fmt.Println("Could not update node")
 			return
 		}
+
+		return
+
+	} else if len(*text) > 0 && len(*is) > 0 {
+
+		*text = filepath.Clean(*text)
+
+		e := ioutil.WriteFile(*text, []byte(*is), os.ModePerm)
+		if e != nil {
+			fmt.Println("Could not create text file")
+			return
+		}
+
+		return
 
 	} else {
 		fmt.Println("Unknown flags")
