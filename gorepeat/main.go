@@ -161,10 +161,10 @@ func nodeWithID(nodes []node, id uint64) (node, bool) {
 	return node{}, false
 }
 
-func writeNewNode(directoryPath string, name string) error {
+func writeNewNode(path string, name string) error {
 
 	if len(name) < 1 {
-		name = filepath.Clean(filepath.Base(directoryPath))
+		name = filepath.Clean(filepath.Base(path))
 	}
 
 	n := node{
@@ -172,14 +172,19 @@ func writeNewNode(directoryPath string, name string) error {
 		Name: name,
 	}
 
-	path := filepath.Join(directoryPath, nodeFileName)
+	nodePath := filepath.Join(path, nodeFileName)
 
 	data, e := json.Marshal(n)
 	if e != nil {
 		return e
 	}
 
-	return ioutil.WriteFile(path, data, os.ModePerm)
+	e = os.MkdirAll(path, os.ModePerm)
+	if e != nil {
+		return e
+	}
+
+	return ioutil.WriteFile(nodePath, data, os.ModePerm)
 }
 
 func nodeFiles(n node) ([]string, error) {
@@ -258,7 +263,7 @@ func deleteAssociation(node1 node, node2 node) (node, bool) {
 	}
 
 	if index == -1 {
-		return node{}, false
+		return node1, false
 	}
 
 	node1.Associations[index] = node1.Associations[len(node1.Associations)-1]
@@ -271,7 +276,7 @@ func addAssociation(node1 node, node2 node) (node, bool) {
 
 	for _, a := range node1.Associations {
 		if a.ID == node2.ID {
-			return node{}, false
+			return node1, false
 		}
 	}
 
