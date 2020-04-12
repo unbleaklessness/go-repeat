@@ -301,7 +301,7 @@ func prepareName(name string) string {
 
 func main() {
 
-	rand.Seed(now())
+	rand.Seed(time.Now().UnixNano())
 
 	associate := flag.String("associate", "", "Use with `-with` flag to associate two nodes")
 	with := flag.String("with", "", "Use with `-associate` flag to associate two nodes")
