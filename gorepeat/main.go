@@ -37,7 +37,7 @@ type settings struct {
 
 const (
 	nodeFileName     = "Node.json"
-	stageTimeScatter = 20 * 60
+	stageTimeScatter = 15 * 60
 	secondsInDay     = 86400
 	settingsName     = "GoRepeat.json"
 )
@@ -283,7 +283,7 @@ func addAssociation(node1 node, node2 node) (node, bool) {
 	a := association{
 		ID:    node2.ID,
 		Stage: 0,
-		Time:  now(),
+		Time:  stageTime(0),
 	}
 
 	node1.Associations = append(node1.Associations, a)
