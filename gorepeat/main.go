@@ -17,12 +17,14 @@ var stages = []int64{0, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, 144, 233, 377, 610, 9
 
 type association struct {
 	ID    uint64
+	Name  string
 	Time  int64
 	Stage int
 }
 
 type node struct {
 	ID            uint64
+	Name          string
 	Associations  []association
 	filePath      string
 	directoryPath string
@@ -69,35 +71,35 @@ func unmarshalNode(nodeBytes []byte) (node, error) {
 	decoder := json.NewDecoder(bytes.NewReader(nodeBytes))
 	decoder.DisallowUnknownFields()
 
-	result := node{}
+	n := node{}
 
-	e := decoder.Decode(&result)
+	e := decoder.Decode(&n)
 	if e != nil {
 		return node{}, e
 	}
 
-	return result, nil
+	return n, nil
 }
 
-func readNode(filePath string) (node, error) {
+func readNode(path string) (node, error) {
 
-	data, e := ioutil.ReadFile(filePath)
+	data, e := ioutil.ReadFile(path)
 	if e != nil {
 		return node{}, e
 	}
 
-	result, e := unmarshalNode(data)
+	n, e := unmarshalNode(data)
 	if e != nil {
 		return node{}, e
 	}
 
-	result.filePath = filePath
+	n.filePath = path
 
-	directoryPath, _ := filepath.Split(filePath)
+	directoryPath, _ := filepath.Split(path)
 
-	result.directoryPath = filepath.Clean(directoryPath)
+	n.directoryPath = filepath.Clean(directoryPath)
 
-	return result, nil
+	return n, nil
 }
 
 func isNode(info os.FileInfo) bool {
@@ -114,12 +116,12 @@ func findNodes() []node {
 			return nil
 		}
 
-		node, e := readNode(path)
+		n, e := readNode(path)
 		if e != nil {
 			return nil
 		}
 
-		nodes = append(nodes, node)
+		nodes = append(nodes, n)
 
 		return nil
 	})
@@ -159,20 +161,25 @@ func nodeWithID(nodes []node, id uint64) (node, bool) {
 	return node{}, false
 }
 
-func writeNewNode(directoryPath string) error {
+func writeNewNode(directoryPath string, name string) error {
 
-	n := node{
-		ID: makeID(),
+	if len(name) < 1 {
+		name = filepath.Clean(filepath.Base(directoryPath))
 	}
 
-	nodePath := filepath.Join(directoryPath, nodeFileName)
+	n := node{
+		ID:   makeID(),
+		Name: name,
+	}
+
+	path := filepath.Join(directoryPath, nodeFileName)
 
 	data, e := json.Marshal(n)
 	if e != nil {
 		return e
 	}
 
-	return ioutil.WriteFile(nodePath, data, os.ModePerm)
+	return ioutil.WriteFile(path, data, os.ModePerm)
 }
 
 func nodeFiles(n node) ([]string, error) {
@@ -231,19 +238,6 @@ func associationWithLeastTime(nodes []node) (node, association, int, int) {
 	return resultNode, resultAssociation, resultNodeI, resultAssociationI
 }
 
-func isNodesAssociated(node1 node, node2 node) bool {
-	for _, a := range node1.Associations {
-		if a.ID == node2.ID {
-			return true
-		}
-	}
-	return false
-}
-
-func isNodesUniassociated(node1 node, node2 node) bool {
-	return isNodesAssociated(node1, node2) && isNodesAssociated(node2, node1)
-}
-
 func timeIsInFuture(t int64) bool {
 	if t > now() {
 		fmt.Printf("No ready nodes, next at %s", time.Unix(t, 0).Format(time.RFC1123))
@@ -252,12 +246,12 @@ func timeIsInFuture(t int64) bool {
 	return false
 }
 
-func removeAssociation(n node, id uint64) (node, bool) {
+func deleteAssociation(node1 node, node2 node) (node, bool) {
 
 	index := -1
 
-	for i, a := range n.Associations {
-		if a.ID == id {
+	for i, a := range node1.Associations {
+		if a.ID == node2.ID {
 			index = i
 			break
 		}
@@ -267,10 +261,30 @@ func removeAssociation(n node, id uint64) (node, bool) {
 		return node{}, false
 	}
 
-	n.Associations[index] = n.Associations[len(n.Associations)-1]
-	n.Associations = n.Associations[:len(n.Associations)-1]
+	node1.Associations[index] = node1.Associations[len(node1.Associations)-1]
+	node1.Associations = node1.Associations[:len(node1.Associations)-1]
 
-	return n, true
+	return node1, true
+}
+
+func addAssociation(node1 node, node2 node) (node, bool) {
+
+	for _, a := range node1.Associations {
+		if a.ID == node2.ID {
+			return node{}, false
+		}
+	}
+
+	a := association{
+		ID:    node2.ID,
+		Stage: 0,
+		Time:  now(),
+		Name:  node1.Name + " -> " + node2.Name,
+	}
+
+	node1.Associations = append(node1.Associations, a)
+
+	return node1, true
 }
 
 func main() {
@@ -281,6 +295,7 @@ func main() {
 	with := flag.String("with", "", "Use with `-associate` flag to associate two nodes")
 	listAssociations := flag.String("list-associations", "", "Show all associations for a node")
 	newNode := flag.String("new-node", "", "Create a new node")
+	name := flag.String("name", "", "Use with `-new-node` to set new node name")
 	question := flag.Bool("question", false, "Show question")
 	answer := flag.Bool("answer", false, "Show answer")
 	yes := flag.Bool("yes", false, "Correct answer")
@@ -309,43 +324,25 @@ func main() {
 			return
 		}
 
-		if isNodesAssociated(node1, node2) {
+		node1, ok = addAssociation(node1, node2)
+		if ok {
+			e := node1.update()
+			if e != nil {
+				fmt.Println("Could not update first node")
+			}
+		} else {
 			fmt.Println("First node is already associated with the second")
-			return
-		}
-
-		a := association{
-			ID:    node2.ID,
-			Stage: 0,
-			Time:  now(),
-		}
-
-		node1.Associations = append(node1.Associations, a)
-
-		e := node1.update()
-		if e != nil {
-			fmt.Println("Could not update first node")
-			return
 		}
 
 		if *uni {
-			if isNodesAssociated(node2, node1) {
+			node2, ok = addAssociation(node2, node1)
+			if ok {
+				e := node2.update()
+				if e != nil {
+					fmt.Println("Could not update second node")
+				}
+			} else {
 				fmt.Println("Second node is already associated with the first")
-				return
-			}
-
-			a := association{
-				ID:    node1.ID,
-				Stage: 0,
-				Time:  now(),
-			}
-
-			node2.Associations = append(node2.Associations, a)
-
-			e := node2.update()
-			if e != nil {
-				fmt.Println("Could not update second node")
-				return
 			}
 		}
 
@@ -365,14 +362,14 @@ func main() {
 				continue
 			}
 
-			fmt.Printf("%d) %s\n", i+1, nn.directoryPath)
+			fmt.Printf("%d) %s || %s\n", i+1, a.Name, nn.directoryPath)
 		}
 
 	} else if len(*newNode) > 0 {
 
 		*newNode = filepath.Clean(*newNode)
 
-		e := writeNewNode(*newNode)
+		e := writeNewNode(*newNode, *name)
 		if e != nil {
 			fmt.Println("Could not create a node")
 			return
@@ -392,14 +389,21 @@ func main() {
 
 		filePaths, e := nodeFiles(n)
 		if e != nil {
-			fmt.Println("Could not read node files")
+			fmt.Println("Could not read question node files")
 			return
 		}
+
+		if len(filePaths) < 1 {
+			fmt.Printf("No files in the question node at \"%s\"\n", n.directoryPath)
+			return
+		}
+
+		fmt.Println(a.Name)
 
 		for _, filePath := range filePaths {
 			e := open(filePath)
 			if e != nil {
-				fmt.Println("Could not open node file")
+				fmt.Println("Could not open question node file")
 				continue
 			}
 		}
@@ -418,20 +422,25 @@ func main() {
 
 		n, ok := nodeWithID(nodes, a.ID)
 		if !ok {
-			fmt.Println("Could not find node by ID")
+			fmt.Println("Could not find answer node")
 			return
 		}
 
 		filePaths, e := nodeFiles(n)
 		if e != nil {
-			fmt.Println("Could not read node files")
+			fmt.Println("Could not read answer node files")
+			return
+		}
+
+		if len(filePaths) < 1 {
+			fmt.Printf("No files in the answer node at \"%s\"\n", n.directoryPath)
 			return
 		}
 
 		for _, filePath := range filePaths {
 			e := open(filePath)
 			if e != nil {
-				fmt.Println("Could not open node file")
+				fmt.Println("Could not open answer node file")
 				continue
 			}
 		}
@@ -491,29 +500,25 @@ func main() {
 			return
 		}
 
-		n, ok := removeAssociation(node1, node2.ID)
-		if !ok {
+		n, ok := deleteAssociation(node1, node2)
+		if ok {
+			e := n.update()
+			if e != nil {
+				fmt.Println("Could not update first node")
+			}
+		} else {
 			fmt.Println("First node is already unassociated with the second")
-			return
-		}
-
-		e := n.update()
-		if e != nil {
-			fmt.Println("Could not update first node")
-			return
 		}
 
 		if *uni {
-			n, ok := removeAssociation(node2, node1.ID)
-			if !ok {
+			n, ok := deleteAssociation(node2, node1)
+			if ok {
+				e := n.update()
+				if e != nil {
+					fmt.Println("Could not update second node")
+				}
+			} else {
 				fmt.Println("Second node is already unassociated with the first")
-				return
-			}
-
-			e := n.update()
-			if e != nil {
-				fmt.Println("Could not update second node")
-				return
 			}
 		}
 
@@ -521,6 +526,4 @@ func main() {
 		fmt.Println("Unknown flags")
 		return
 	}
-
-	fmt.Println("Ok!")
 }
