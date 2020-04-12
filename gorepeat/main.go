@@ -300,7 +300,7 @@ func main() {
 	with := flag.String("with", "", "Use with `-associate` flag to associate two nodes")
 	listAssociations := flag.String("list-associations", "", "Show all associations for a node")
 	newNode := flag.String("new-node", "", "Create a new node")
-	name := flag.String("name", "", "Use with `-new-node` to set new node name")
+	name := flag.String("name", "", "Use with `-new-node` to set new node name. Use alone to see node name")
 	question := flag.Bool("question", false, "Show question")
 	answer := flag.Bool("answer", false, "Show answer")
 	yes := flag.Bool("yes", false, "Correct answer")
@@ -526,6 +526,18 @@ func main() {
 				fmt.Println("Second node is already unassociated with the first")
 			}
 		}
+
+	} else if len(*name) > 0 {
+
+		*name = filepath.Clean(*name)
+
+		n, ok := nodeWithPath(nodes, *name)
+		if !ok {
+			fmt.Println("Could not find node")
+			return
+		}
+
+		fmt.Println(n.Name)
 
 	} else {
 		fmt.Println("Unknown flags")
