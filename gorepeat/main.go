@@ -397,7 +397,7 @@ func main() {
 		}
 
 		if len(*text) > 0 && len(*is) > 0 {
-			e := ioutil.WriteFile(filepath.Join(*newNode, *name, *text), []byte(*is), os.ModePerm)
+			e := ioutil.WriteFile(filepath.Join(*newNode, *text), []byte(*is), os.ModePerm)
 			if e != nil {
 				fmt.Println("Could not create text file")
 				return
