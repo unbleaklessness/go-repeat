@@ -30,16 +30,11 @@ type node struct {
 	directoryPath string
 }
 
-type settings struct {
-	Root string
-	file *os.File
-}
-
 const (
 	nodeFileName     = "Node.json"
+	textFileName     = "Text.txt"
 	stageTimeScatter = 15 * 60
 	secondsInDay     = 86400
-	settingsName     = "GoRepeat.json"
 )
 
 func now() int64 {
@@ -51,11 +46,11 @@ func stageTime(stage int) int64 {
 }
 
 func nextStage(stage int) int {
-	stage--
-	if stage >= len(stages) {
-		return stage + 1
+	stagePlus := stage + 1
+	if stagePlus >= len(stages) {
+		return stage
 	}
-	return stage + 2
+	return stagePlus
 }
 
 func previousStage(stage int) int {
@@ -96,14 +91,13 @@ func readNode(path string) (node, error) {
 	n.filePath = path
 
 	directoryPath, _ := filepath.Split(path)
-
 	n.directoryPath = filepath.Clean(directoryPath)
 
 	return n, nil
 }
 
 func isNode(info os.FileInfo) bool {
-	return !info.IsDir() || info.Name() == nodeFileName
+	return !info.IsDir() && info.Name() == nodeFileName
 }
 
 func findNodes() []node {
@@ -139,7 +133,7 @@ func (n *node) update() error {
 	return ioutil.WriteFile(n.filePath, data, os.ModePerm)
 }
 
-func nodeWithPath(nodes []node, path string) (node, bool) {
+func nodeWithDirectoryPath(nodes []node, path string) (node, bool) {
 
 	for _, n := range nodes {
 		if n.directoryPath == path {
@@ -164,7 +158,7 @@ func nodeWithID(nodes []node, id uint64) (node, bool) {
 func writeNewNode(path string, name string) error {
 
 	if len(name) < 1 {
-		name = filepath.Clean(filepath.Base(path))
+		name = filepath.Base(path)
 	}
 
 	n := node{
@@ -231,27 +225,27 @@ func associationWithLeastTime(nodes []node) (node, association, int, int) {
 
 				minimum = a.Time
 
-				resultNode = n
-				resultAssociation = a
-
 				resultNodeI = i
 				resultAssociationI = j
 			}
 		}
 	}
 
+	resultNode = nodes[resultNodeI]
+	resultAssociation = resultNode.Associations[resultAssociationI]
+
 	return resultNode, resultAssociation, resultNodeI, resultAssociationI
 }
 
-func timeIsInFuture(t int64) bool {
+func isTimeInTheFuture(t int64) bool {
 	if t > now() {
-		fmt.Printf("No ready nodes, next at %s", time.Unix(t, 0).Format(time.RFC1123))
+		fmt.Printf("No ready nodes, next at %s\n", time.Unix(t, 0).Format(time.RFC1123))
 		return true
 	}
 	return false
 }
 
-func deleteAssociation(node1 node, node2 node) (node, bool) {
+func deleteNodesAssociation(node1 node, node2 node) (node, bool) {
 
 	index := -1
 
@@ -272,7 +266,28 @@ func deleteAssociation(node1 node, node2 node) (node, bool) {
 	return node1, true
 }
 
-func addAssociation(node1 node, node2 node) (node, bool) {
+func deleteAssociation(n node, id uint64) (node, bool) {
+
+	index := -1
+
+	for i, a := range n.Associations {
+		if a.ID == id {
+			index = i
+			break
+		}
+	}
+
+	if index == -1 {
+		return n, false
+	}
+
+	n.Associations[index] = n.Associations[len(n.Associations)-1]
+	n.Associations = n.Associations[:len(n.Associations)-1]
+
+	return n, true
+}
+
+func addNodesAssociation(node1 node, node2 node) (node, bool) {
 
 	for _, a := range node1.Associations {
 		if a.ID == node2.ID {
@@ -280,10 +295,12 @@ func addAssociation(node1 node, node2 node) (node, bool) {
 		}
 	}
 
+	stage := 0
+
 	a := association{
 		ID:    node2.ID,
-		Stage: 0,
-		Time:  stageTime(0),
+		Stage: stage,
+		Time:  stageTime(stage),
 	}
 
 	node1.Associations = append(node1.Associations, a)
@@ -318,29 +335,117 @@ func main() {
 	to := flag.String("to", "", "Use with `-rename` to set new node name")
 	text := flag.String("text", "", "Create text file in the unit with `-new-node` flag, or in currect directory if alone")
 	is := flag.String("is", "", "Use with `-text` flag to set text file content")
+	clean := flag.Bool("clean", false, "Use with `-question` or `-answer` flag to clean non-existent association")
+	class := flag.Bool("class", false, "Create two nodes and associate them")
 
 	flag.Parse()
 
 	nodes := findNodes()
 
-	if len(*associate) > 0 && len(*with) > 0 {
+	if *class && flag.NArg() > 3 {
+
+		node1Class := prepareName(flag.Arg(0))
+		node1Instance := prepareName(flag.Arg(1))
+		node2Class := prepareName(flag.Arg(2))
+		node2Instance := prepareName(flag.Arg(3))
+
+		node1DirectoryPath := filepath.Join(node1Class, node1Instance)
+		node2DirectoryPath := filepath.Join(node2Class, node2Instance)
+
+		_, ok := nodeWithDirectoryPath(nodes, node1DirectoryPath)
+		if ok {
+			fmt.Println("First node already exists")
+			return
+		}
+
+		_, ok = nodeWithDirectoryPath(nodes, node2DirectoryPath)
+		if ok {
+			fmt.Println("Second node already exists")
+			return
+		}
+
+		e := writeNewNode(node1DirectoryPath, node1Class)
+		if e != nil {
+			fmt.Println("Could not create first node")
+			return
+		}
+
+		e = writeNewNode(node2DirectoryPath, node2Class)
+		if e != nil {
+			fmt.Println("Could not create second node")
+			return
+		}
+
+		node1TextPath := filepath.Join(node1DirectoryPath, textFileName)
+		node2TextPath := filepath.Join(node2DirectoryPath, textFileName)
+
+		e = ioutil.WriteFile(node1TextPath, []byte(node1Instance), os.ModePerm)
+		if e != nil {
+			fmt.Println("Could not create first text file")
+			return
+		}
+
+		e = ioutil.WriteFile(node2TextPath, []byte(node2Instance), os.ModePerm)
+		if e != nil {
+			fmt.Println("Could not create second text file")
+			return
+		}
+
+		node1Path := filepath.Join(node1DirectoryPath, nodeFileName)
+		node2Path := filepath.Join(node2DirectoryPath, nodeFileName)
+
+		node1, e := readNode(node1Path)
+		if e != nil {
+			fmt.Println("Could not read first node")
+			return
+		}
+
+		node2, e := readNode(node2Path)
+		if e != nil {
+			fmt.Println("Could not read second node")
+			return
+		}
+
+		node1, ok = addNodesAssociation(node1, node2)
+		if ok {
+			e := node1.update()
+			if e != nil {
+				fmt.Println("Could not update first node")
+			}
+		} else {
+			fmt.Println("First node is already associated with the second")
+		}
+
+		node2, ok = addNodesAssociation(node2, node1)
+		if ok {
+			e := node2.update()
+			if e != nil {
+				fmt.Println("Could not update second node")
+			}
+		} else {
+			fmt.Println("Second node is already associated with the first")
+		}
+
+		return
+
+	} else if len(*associate) > 0 && len(*with) > 0 {
 
 		*associate = filepath.Clean(*associate)
 		*with = filepath.Clean(*with)
 
-		node1, ok := nodeWithPath(nodes, *associate)
+		node1, ok := nodeWithDirectoryPath(nodes, *associate)
 		if !ok {
 			fmt.Println("Node is not found for `-associate` flag")
 			return
 		}
 
-		node2, ok := nodeWithPath(nodes, *with)
+		node2, ok := nodeWithDirectoryPath(nodes, *with)
 		if !ok {
 			fmt.Println("Node is not found for `-with` flag")
 			return
 		}
 
-		node1, ok = addAssociation(node1, node2)
+		node1, ok = addNodesAssociation(node1, node2)
 		if ok {
 			e := node1.update()
 			if e != nil {
@@ -351,7 +456,7 @@ func main() {
 		}
 
 		if *uni {
-			node2, ok = addAssociation(node2, node1)
+			node2, ok = addNodesAssociation(node2, node1)
 			if ok {
 				e := node2.update()
 				if e != nil {
@@ -368,7 +473,7 @@ func main() {
 
 		*listAssociations = filepath.Clean(*listAssociations)
 
-		n, ok := nodeWithPath(nodes, *listAssociations)
+		n, ok := nodeWithDirectoryPath(nodes, *listAssociations)
 		if !ok {
 			fmt.Println("Node is not found for `-list-associations` flag")
 			return
@@ -380,7 +485,7 @@ func main() {
 				continue
 			}
 
-			fmt.Printf("%d) %s || %s\n", i+1, associationName(n, nn), nn.directoryPath)
+			fmt.Printf("%d) %s | %s\n", i+1, associationName(n, nn), nn.directoryPath)
 		}
 
 		return
@@ -389,6 +494,12 @@ func main() {
 
 		*newNode = filepath.Clean(*newNode)
 		*name = prepareName(*name)
+
+		_, ok := nodeWithDirectoryPath(nodes, *newNode)
+		if ok {
+			fmt.Println("Node already exists")
+			return
+		}
 
 		e := writeNewNode(*newNode, *name)
 		if e != nil {
@@ -414,7 +525,7 @@ func main() {
 			return
 		}
 
-		if timeIsInFuture(a.Time) {
+		if isTimeInTheFuture(a.Time) {
 			return
 		}
 
@@ -432,6 +543,19 @@ func main() {
 		nn, ok := nodeWithID(nodes, a.ID)
 		if !ok {
 			fmt.Println("Could not find answer node")
+			if *clean {
+				n, ok = deleteAssociation(n, a.ID)
+				if ok {
+					e := n.update()
+					if e == nil {
+						fmt.Println("Association with answer node removed")
+					} else {
+						fmt.Println("Could not update question node")
+					}
+				} else {
+					fmt.Println("Could not remove association with an answer node")
+				}
+			}
 			return
 		}
 
@@ -455,13 +579,26 @@ func main() {
 			return
 		}
 
-		if timeIsInFuture(a.Time) {
+		if isTimeInTheFuture(a.Time) {
 			return
 		}
 
 		n, ok := nodeWithID(nodes, a.ID)
 		if !ok {
 			fmt.Println("Could not find answer node")
+			if *clean {
+				n, ok = deleteAssociation(n, a.ID)
+				if ok {
+					e := n.update()
+					if e == nil {
+						fmt.Println("Association with answer node removed")
+					} else {
+						fmt.Println("Could not update question node")
+					}
+				} else {
+					fmt.Println("Could not remove association with an answer node")
+				}
+			}
 			return
 		}
 
@@ -533,19 +670,19 @@ func main() {
 		*unassociate = filepath.Clean(*unassociate)
 		*with = filepath.Clean(*with)
 
-		node1, ok := nodeWithPath(nodes, *unassociate)
+		node1, ok := nodeWithDirectoryPath(nodes, *unassociate)
 		if !ok {
 			fmt.Println("Node is not found for `-unassociate` flag")
 			return
 		}
 
-		node2, ok := nodeWithPath(nodes, *with)
+		node2, ok := nodeWithDirectoryPath(nodes, *with)
 		if !ok {
 			fmt.Println("Node is not found for `-with` flag")
 			return
 		}
 
-		n, ok := deleteAssociation(node1, node2)
+		n, ok := deleteNodesAssociation(node1, node2)
 		if ok {
 			e := n.update()
 			if e != nil {
@@ -556,7 +693,7 @@ func main() {
 		}
 
 		if *uni {
-			n, ok := deleteAssociation(node2, node1)
+			n, ok := deleteNodesAssociation(node2, node1)
 			if ok {
 				e := n.update()
 				if e != nil {
@@ -573,7 +710,7 @@ func main() {
 
 		*name = filepath.Clean(*name)
 
-		n, ok := nodeWithPath(nodes, *name)
+		n, ok := nodeWithDirectoryPath(nodes, *name)
 		if !ok {
 			fmt.Println("Could not find node")
 			return
@@ -587,7 +724,7 @@ func main() {
 
 		*rename = filepath.Clean(*rename)
 
-		n, ok := nodeWithPath(nodes, *rename)
+		n, ok := nodeWithDirectoryPath(nodes, *rename)
 		if !ok {
 			fmt.Println("Node is not found")
 			return
@@ -616,7 +753,10 @@ func main() {
 		return
 
 	} else {
-		fmt.Println("Unknown flags")
+
+		fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
+		flag.PrintDefaults()
+		
 		return
 	}
 }
