@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -102,23 +103,34 @@ func isNode(info os.FileInfo) bool {
 
 func findNodes() []node {
 
+	var waitGroup sync.WaitGroup
+
 	nodes := make([]node, 0)
 
 	filepath.Walk(".", func(path string, info os.FileInfo, e error) error {
 
-		if !isNode(info) {
-			return nil
-		}
+		waitGroup.Add(1)
 
-		n, e := readNode(path)
-		if e != nil {
-			return nil
-		}
+		go func() {
 
-		nodes = append(nodes, n)
+			defer waitGroup.Done()
+
+			if !isNode(info) {
+				return
+			}
+
+			n, e := readNode(path)
+			if e != nil {
+				return
+			}
+
+			nodes = append(nodes, n)
+		}()
 
 		return nil
 	})
+
+	waitGroup.Wait()
 
 	return nodes
 }
@@ -320,25 +332,73 @@ func main() {
 
 	rand.Seed(time.Now().UnixNano())
 
-	associate := flag.String("associate", "", `Use with "-with" flag to associate two nodes. Example: 'gorepeat -associate "Year" -with "Jaro"'.`)
-	unassociate := flag.String("unassociate", "", `Use with "-with" flag to unassociate two nodes. Example: 'gorepeat -unassociate "Year" -with "Jaro"'.`)
+	associateLong := flag.String("associate", "", `Use with "-with" flag to associate two nodes. Example: 'gorepeat -associate "Year" -with "Jaro"'.`)
+	associateShort := flag.String("ac", "", `Same as "-associate" flag.`)
+	unassociateLong := flag.String("unassociate", "", `Use with "-with" flag to unassociate two nodes. Example: 'gorepeat -unassociate "Year" -with "Jaro"'.`)
+	unassociateShort := flag.String("uac", "", `Same as "-unassociate" flag.`)
 	uni := flag.Bool("uni", false, `Associate / unassociate both ways. Example: 'gorepeat -uni -associate "Year" -with "Jaro"'. Example: 'gorepeat -uni -unassociate "Year" -with "Jaro"'.`)
 	with := flag.String("with", "", `Use with "-associate" flag to associate two nodes. See "-associate" flag for example.`)
 	listAssociations := flag.String("list-associations", "", `Show all associations for a node. Example: 'gorepeat -list-associations "Year"'.`)
-	newNode := flag.String("new-node", "", `Create a new node. Example: 'gorepeat -new-node "Year"'.`)
+	newNodeLong := flag.String("new-node", "", `Create a new node. Example: 'gorepeat -new-node "Year"'.`)
+	newNodeShort := flag.String("n", "", `Same as "-new-node" flag.`)
 	name := flag.String("name", "", `Use with "-new-node" flag to set a new node name. Use without "-new-node" flag to see node name. Example: 'gorepeat -new-node "Year" -name "English word". Example: 'gorepeat -name "Year".`)
 	rename := flag.String("rename", "", `Rename a node. Example: 'gorepeat -rename "Year" -to "Month"'.`)
 	to := flag.String("to", "", `Use with "-rename" to set a new node name. See "-rename" flag for example.`)
-	question := flag.Bool("question", false, `Show a question. Example: 'gorepeat -question'.`)
-	answer := flag.Bool("answer", false, `Show the answer. Example: 'gorepeat -answer'.`)
+	questionLong := flag.Bool("question", false, `Show a question. Example: 'gorepeat -question'.`)
+	questionShort := flag.Bool("q", false, `Same as "-question" flag.`)
+	answerLong := flag.Bool("answer", false, `Show the answer. Example: 'gorepeat -answer'.`)
+	answerShort := flag.Bool("a", false, `Same as "-answer" flag.`)
 	yes := flag.Bool("yes", false, `Correct answer. Example: 'gorepeat -yes'.`)
 	no := flag.Bool("no", false, `Incorrect answer. Example: 'gorepeat -no'.`)
-	text := flag.String("text", "", `Create a text file in a unit with "-new-node" flag, or in the currect directory if "-new-node" flag is not present. Example: 'gorepeat -new-node "English word" -text -is "Year"'. Example: 'gorepeat -text -is "Year"'.`)
+	textLong := flag.String("text", "", `Create a text file in a unit with "-new-node" flag, or in the currect directory if "-new-node" flag is not present. Example: 'gorepeat -new-node "English word" -text -is "Year"'. Example: 'gorepeat -text -is "Year"'.`)
+	textShort := flag.String("t", "", `Same as "-text" flag.`)
 	is := flag.String("is", "", `Use with "-text" flag to set text file content. See "-text" flag for example.`)
 	clean := flag.Bool("clean", false, `Use with "-question" or "-answer" flags to clean non-existent associations. Example: 'gorepeat -question -clean'.`)
 	class := flag.Bool("class", false, `Create two nodes and uni-associate them. Example: 'gorepeat -class "English word" "Year" "Esperanto word" "Jaro"'.`)
 
 	flag.Parse()
+
+	var unassociate *string
+	if len(*unassociateLong) > 0 {
+		unassociate = unassociateLong
+	} else {
+		unassociate = unassociateShort
+	}
+
+	var associate *string
+	if len(*associateLong) > 0 {
+		associate = associateLong
+	} else {
+		associate = associateShort
+	}
+
+	var question *bool
+	if *questionLong {
+		question = questionLong
+	} else {
+		question = questionShort
+	}
+
+	var answer *bool
+	if *answerLong {
+		answer = answerLong
+	} else {
+		answer = answerShort
+	}
+
+	var newNode *string
+	if len(*newNodeLong) > 0 {
+		newNode = newNodeLong
+	} else {
+		newNode = newNodeShort
+	}
+
+	var text *string
+	if len(*textLong) > 0 {
+		text = textLong
+	} else {
+		text = textShort
+	}
 
 	nodes := findNodes()
 
@@ -756,7 +816,7 @@ func main() {
 
 		fmt.Fprintf(os.Stderr, "Usage of %s:\n", os.Args[0])
 		flag.PrintDefaults()
-		
+
 		return
 	}
 }
