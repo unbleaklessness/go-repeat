@@ -9,6 +9,7 @@ import (
 	"math"
 	"math/rand"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -328,6 +329,23 @@ func prepareName(name string) string {
 	return strings.Trim(name, " \n\r\t")
 }
 
+func makeNotificationScript(title string, text string) string {
+	result := `[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null;`
+	result += `$template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02);`
+	result += `$toastXml = [xml] $template.GetXml();`
+	result += `($toastXml.toast.visual.binding.text | where {$_.id -eq "1"}).AppendChild($toastXml.CreateTextNode("` + title + `")) > $null;`
+	result += `($toastXml.toast.visual.binding.text | where {$_.id -eq "2"}).AppendChild($toastXml.CreateTextNode("` + text + `")) > $null;`
+	result += `$xml = New-Object Windows.Data.Xml.Dom.XmlDocument;`
+	result += `$xml.LoadXml($toastXml.OuterXml);`
+	result += `$toast = [Windows.UI.Notifications.ToastNotification]::new($xml);`
+	result += `$toast.Tag = "PowerShell";`
+	result += `$toast.Group = "PowerShell";`
+	result += `$toast.ExpirationTime = [DateTimeOffset]::Now.AddMinutes(1440);`
+	result += `$notifier = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("PowerShell");`
+	result += `$notifier.Show($toast);`
+	return result
+}
+
 func main() {
 
 	rand.Seed(time.Now().UnixNano())
@@ -355,6 +373,7 @@ func main() {
 	is := flag.String("is", "", `Use with "-text" flag to set text file content. See "-text" flag for example.`)
 	clean := flag.Bool("clean", false, `Use with "-question" or "-answer" flags to clean non-existent associations. Example: 'gorepeat -question -clean'.`)
 	class := flag.Bool("class", false, `Create two nodes and uni-associate them. Example: 'gorepeat -class "English word" "Year" "Esperanto word" "Jaro"'.`)
+	notify := flag.String("notify", "", `Notify about ready nodes.`)
 
 	flag.Parse()
 
@@ -811,6 +830,47 @@ func main() {
 		}
 
 		return
+
+	} else if len(*notify) > 0 {
+
+		*notify = filepath.Clean(*notify)
+
+		e := os.Chdir(*notify)
+		if e != nil {
+			fmt.Println("Provided path is invalid")
+			return
+		}
+
+		waitDuration := int64(5 * time.Minute)
+		lastTime := int64(0)
+
+		for {
+
+			currentTime := time.Now().UnixNano()
+			if currentTime < (lastTime + waitDuration) {
+				time.Sleep(30 * time.Second)
+				continue
+			}
+			lastTime = currentTime
+
+			nodes := findNodes()
+
+			n, a, nI, _ := associationWithLeastTime(nodes)
+			if nI == -1 {
+				continue
+			}
+
+			if isTimeInTheFuture(a.Time) {
+				continue
+			}
+
+			nn, ok := nodeWithID(nodes, a.ID)
+			if !ok {
+				continue
+			}
+
+			exec.Command("cmd", "/c", "powershell", "-NoExit", "-Command", makeNotificationScript("Node is ready", associationName(n, nn))).Run()
+		}
 
 	} else {
 
