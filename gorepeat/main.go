@@ -331,7 +331,7 @@ func prepareName(name string) string {
 
 func makeNotificationScript(title string, text string) string {
 
-	replacer := strings.NewReplacer("\"", "'", "\n", " ", "\r", "", ">", "^>", "<", "^<")
+	replacer := strings.NewReplacer("\"", "'", "\n", " ", "\r", "", ">", "^>", "<", "^<", "&", "^&", "\\", "^\\", "^", "^^", "|", "^|")
 
 	title = replacer.Replace(title)
 	text = replacer.Replace(text)
