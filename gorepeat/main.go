@@ -330,11 +330,19 @@ func prepareName(name string) string {
 }
 
 func makeNotificationScript(title string, text string) string {
+
+	replacer := strings.NewReplacer("\"", "'", "\n", " ", "\r", "", ">", "^>", "<", "^<")
+
+	title = replacer.Replace(title)
+	text = replacer.Replace(text)
+
 	result := `[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null;`
 	result += `$template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02);`
 	result += `$toastXml = [xml] $template.GetXml();`
-	result += `($toastXml.toast.visual.binding.text | where {$_.id -eq "1"}).AppendChild($toastXml.CreateTextNode("` + title + `")) > $null;`
-	result += `($toastXml.toast.visual.binding.text | where {$_.id -eq "2"}).AppendChild($toastXml.CreateTextNode("` + text + `")) > $null;`
+	result += `$notificationTitle = "` + title + `";`
+	result += `$notificationText = "` + text + `";`
+	result += `($toastXml.toast.visual.binding.text | where {$_.id -eq "1"}).AppendChild($toastXml.CreateTextNode($notificationTitle)) > $null;`
+	result += `($toastXml.toast.visual.binding.text | where {$_.id -eq "2"}).AppendChild($toastXml.CreateTextNode($notificationText)) > $null;`
 	result += `$xml = New-Object Windows.Data.Xml.Dom.XmlDocument;`
 	result += `$xml.LoadXml($toastXml.OuterXml);`
 	result += `$toast = [Windows.UI.Notifications.ToastNotification]::new($xml);`
@@ -343,6 +351,7 @@ func makeNotificationScript(title string, text string) string {
 	result += `$toast.ExpirationTime = [DateTimeOffset]::Now.AddMinutes(1440);`
 	result += `$notifier = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("PowerShell");`
 	result += `$notifier.Show($toast);`
+
 	return result
 }
 
