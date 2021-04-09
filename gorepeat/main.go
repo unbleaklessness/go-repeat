@@ -381,7 +381,9 @@ func main() {
 	textShort := flag.String("t", "", `Same as "-text" flag.`)
 	is := flag.String("is", "", `Use with "-text" flag to set text file content. See "-text" flag for example.`)
 	clean := flag.Bool("clean", false, `Use with "-question" or "-answer" flags to clean non-existent associations. Example: 'gorepeat -question -clean'.`)
-	class := flag.Bool("class", false, `Create two nodes and uni-associate them. Example: 'gorepeat -class "English word" "Year" "Esperanto word" "Jaro"'.`)
+	classes := flag.Bool("classes", false, `Create two text nodes in two directories and uni-associate them. Example: 'gorepeat -classes "English word" "Year" "Esperanto word" "Jaro"'.`)
+	pair := flag.Bool("pair", false, `Create two text nodes the same directory and uni-associate them. Example: 'gorepeat -pair "Manipulator equation" "Definition" "Term"'.`)
+	withText := flag.Bool("with-text", false, `Use with "-classes" and "-pair" flags to create text files. Example: 'gorepeat -with-text -classes "English word" "Year" "Esperanto word" "Jaro"'.`)
 	notify := flag.String("notify", "", `Notify about ready nodes.`)
 
 	flag.Parse()
@@ -430,7 +432,7 @@ func main() {
 
 	nodes := findNodes()
 
-	if *class && flag.NArg() > 3 {
+	if *classes && flag.NArg() > 3 {
 
 		node1Class := prepareName(flag.Arg(0))
 		node1Instance := prepareName(flag.Arg(1))
@@ -464,19 +466,110 @@ func main() {
 			return
 		}
 
-		node1TextPath := filepath.Join(node1DirectoryPath, textFileName)
-		node2TextPath := filepath.Join(node2DirectoryPath, textFileName)
+		if *withText {
 
-		e = ioutil.WriteFile(node1TextPath, []byte(node1Instance), os.ModePerm)
+			node1TextPath := filepath.Join(node1DirectoryPath, textFileName)
+			node2TextPath := filepath.Join(node2DirectoryPath, textFileName)
+
+			e = ioutil.WriteFile(node1TextPath, []byte(node1Instance), os.ModePerm)
+			if e != nil {
+				fmt.Println("Could not create first text file")
+				return
+			}
+
+			e = ioutil.WriteFile(node2TextPath, []byte(node2Instance), os.ModePerm)
+			if e != nil {
+				fmt.Println("Could not create second text file")
+				return
+			}
+		}
+
+		node1Path := filepath.Join(node1DirectoryPath, nodeFileName)
+		node2Path := filepath.Join(node2DirectoryPath, nodeFileName)
+
+		node1, e := readNode(node1Path)
 		if e != nil {
-			fmt.Println("Could not create first text file")
+			fmt.Println("Could not read first node")
 			return
 		}
 
-		e = ioutil.WriteFile(node2TextPath, []byte(node2Instance), os.ModePerm)
+		node2, e := readNode(node2Path)
 		if e != nil {
-			fmt.Println("Could not create second text file")
+			fmt.Println("Could not read second node")
 			return
+		}
+
+		node1, ok = addNodesAssociation(node1, node2)
+		if ok {
+			e := node1.update()
+			if e != nil {
+				fmt.Println("Could not update first node")
+			}
+		} else {
+			fmt.Println("First node is already associated with the second")
+		}
+
+		node2, ok = addNodesAssociation(node2, node1)
+		if ok {
+			e := node2.update()
+			if e != nil {
+				fmt.Println("Could not update second node")
+			}
+		} else {
+			fmt.Println("Second node is already associated with the first")
+		}
+
+		return
+
+	} else if *pair && flag.NArg() > 2 {
+
+		nodesDirectory := prepareName(flag.Arg(0))
+		node1Name := prepareName(flag.Arg(1))
+		node2Name := prepareName(flag.Arg(2))
+
+		node1DirectoryPath := filepath.Join(nodesDirectory, node1Name)
+		node2DirectoryPath := filepath.Join(nodesDirectory, node2Name)
+
+		_, ok := nodeWithDirectoryPath(nodes, node1DirectoryPath)
+		if ok {
+			fmt.Println("First node already exists")
+			return
+		}
+
+		_, ok = nodeWithDirectoryPath(nodes, node2DirectoryPath)
+		if ok {
+			fmt.Println("Second node already exists")
+			return
+		}
+
+		e := writeNewNode(node1DirectoryPath, node1Name)
+		if e != nil {
+			fmt.Println("Could not create first node")
+			return
+		}
+
+		e = writeNewNode(node2DirectoryPath, node2Name)
+		if e != nil {
+			fmt.Println("Could not create second node")
+			return
+		}
+
+		if *withText {
+
+			node1TextPath := filepath.Join(node1DirectoryPath, textFileName)
+			node2TextPath := filepath.Join(node2DirectoryPath, textFileName)
+
+			e = ioutil.WriteFile(node1TextPath, []byte{}, os.ModePerm)
+			if e != nil {
+				fmt.Println("Could not create first text file")
+				return
+			}
+
+			e = ioutil.WriteFile(node2TextPath, []byte{}, os.ModePerm)
+			if e != nil {
+				fmt.Println("Could not create second text file")
+				return
+			}
 		}
 
 		node1Path := filepath.Join(node1DirectoryPath, nodeFileName)
@@ -596,6 +689,7 @@ func main() {
 		}
 
 		if len(*text) > 0 && len(*is) > 0 {
+			*text = filepath.Clean(*text)
 			e := ioutil.WriteFile(filepath.Join(*newNode, *text), []byte(*is), os.ModePerm)
 			if e != nil {
 				fmt.Println("Could not create text file")
