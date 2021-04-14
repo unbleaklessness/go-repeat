@@ -384,7 +384,7 @@ func main() {
 	classes := flag.Bool("classes", false, `Create two text nodes in two directories and uni-associate them. Example: 'gorepeat -classes "English word" "Year" "Esperanto word" "Jaro"'.`)
 	pair := flag.Bool("pair", false, `Create two text nodes the same directory and uni-associate them. Example: 'gorepeat -pair "Manipulator equation" "Definition" "Term"'.`)
 	withText := flag.Bool("with-text", false, `Use with "-classes" and "-pair" flags to create text files. Example: 'gorepeat -with-text -classes "English word" "Year" "Esperanto word" "Jaro"'.`)
-	notify := flag.String("notify", "", `Notify about ready nodes.`)
+	notify := flag.String("notify", "", `Notify about ready nodes in specified directory. Example: 'gorepeat -notify "D:/GoRepeat"'.`)
 
 	flag.Parse()
 
