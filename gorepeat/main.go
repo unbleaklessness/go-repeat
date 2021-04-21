@@ -1002,36 +1002,65 @@ func main() {
 			return
 		}
 
-		waitDuration := int64(5 * time.Minute)
-		lastTime := int64(0)
+		questionTicker := time.NewTicker(5 * time.Minute)
+		explanationTicker := time.NewTicker(53 * time.Minute)
+		practiceTicker := time.NewTicker(57 * time.Minute)
 
 		for {
+			select {
 
-			currentTime := time.Now().UnixNano()
-			if currentTime < (lastTime + waitDuration) {
-				time.Sleep(30 * time.Second)
-				continue
+			case <-questionTicker.C:
+
+				nodes = findNodes()
+
+				n, a, nI, _ := associationWithLeastTime(nodes)
+				if nI == -1 {
+					continue
+				}
+
+				if a.Time > now() {
+					continue
+				}
+
+				nn, ok := nodeWithID(nodes, a.ID)
+				if !ok {
+					continue
+				}
+
+				exec.Command("cmd", "/c", "powershell", "-NoExit", "-Command", makeNotificationScript("Question is ready", associationName(n, nn))).Run()
+
+			case <-explanationTicker.C:
+
+				nodes = findNodes()
+
+				n, nI := nodeWithLeastExplanationTime(nodes)
+				if nI == -1 {
+					continue
+				}
+
+				if n.ExplanationTime > now() {
+					continue
+				}
+
+				text := n.Name + " | " + n.directoryPath
+				exec.Command("cmd", "/c", "powershell", "-NoExit", "-Command", makeNotificationScript("Explanation needed", text)).Run()
+
+			case <-practiceTicker.C:
+
+				nodes = findNodes()
+
+				n, nI := nodeWithLeastPracticeTime(nodes)
+				if nI == -1 {
+					continue
+				}
+
+				if n.PracticeTime > now() {
+					continue
+				}
+
+				text := n.Name + " | " + n.directoryPath
+				exec.Command("cmd", "/c", "powershell", "-NoExit", "-Command", makeNotificationScript("Practice needed", text)).Run()
 			}
-			lastTime = currentTime
-
-			nodes := findNodes()
-
-			n, a, nI, _ := associationWithLeastTime(nodes)
-			if nI == -1 {
-				continue
-			}
-
-			if a.Time > now() {
-				timeInTheFutureMessage(a.Time)
-				continue
-			}
-
-			nn, ok := nodeWithID(nodes, a.ID)
-			if !ok {
-				continue
-			}
-
-			exec.Command("cmd", "/c", "powershell", "-NoExit", "-Command", makeNotificationScript("Node is ready", associationName(n, nn))).Run()
 		}
 
 		// Return.
@@ -1049,7 +1078,7 @@ func main() {
 			return
 		}
 
-		fmt.Printf("Need explanation for node: %s | %s", n.Name, n.directoryPath)
+		fmt.Printf("Need explanation for node: %s | %s\n", n.Name, n.directoryPath)
 
 		return
 
@@ -1066,7 +1095,7 @@ func main() {
 			return
 		}
 
-		fmt.Printf("Need practice for node: %s | %s", n.Name, n.directoryPath)
+		fmt.Printf("Need practice for node: %s | %s\n", n.Name, n.directoryPath)
 
 		return
 
