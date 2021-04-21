@@ -25,18 +25,22 @@ type association struct {
 }
 
 type node struct {
-	ID            uint64
-	Name          string
-	Associations  []association
-	filePath      string
-	directoryPath string
+	ID              uint64
+	Name            string
+	Associations    []association
+	NeedExplanation bool
+	ExplanationTime int64
+	NeedPractice    bool
+	PracticeTime    int64
+	filePath        string
+	directoryPath   string
 }
 
 const (
-	nodeFileName     = "Node.json"
-	textFileName     = "Text.txt"
-	stageTimeScatter = 15 * 60
-	secondsInDay     = 86400
+	nodeFileName  = "Node.json"
+	textFileName  = "Text.txt"
+	timeScatter   = 15 * 60
+	secondsInADay = 86400
 )
 
 func now() int64 {
@@ -44,7 +48,7 @@ func now() int64 {
 }
 
 func stageTime(stage int) int64 {
-	return now() + stages[stage]*secondsInDay + rand.Int63n(stageTimeScatter)
+	return now() + stages[stage]*secondsInADay + rand.Int63n(timeScatter)
 }
 
 func nextStage(stage int) int {
@@ -168,15 +172,19 @@ func nodeWithID(nodes []node, id uint64) (node, bool) {
 	return node{}, false
 }
 
-func writeNewNode(path string, name string) error {
+func writeNewNode(path string, name string, needExplanation bool, needPractice bool) error {
 
 	if len(name) < 1 {
 		name = filepath.Base(path)
 	}
 
 	n := node{
-		ID:   makeID(),
-		Name: name,
+		ID:              makeID(),
+		Name:            name,
+		NeedExplanation: needExplanation,
+		ExplanationTime: now(),
+		NeedPractice:    needPractice,
+		PracticeTime:    now(),
 	}
 
 	nodePath := filepath.Join(path, nodeFileName)
@@ -225,10 +233,6 @@ func associationWithLeastTime(nodes []node) (node, association, int, int) {
 	resultNodeI := -1
 	resultAssociationI := -1
 
-	if len(nodes) < 1 {
-		return resultNode, resultAssociation, resultNodeI, resultAssociationI
-	}
-
 	minimum := int64(math.MaxInt64)
 
 	for i, n := range nodes {
@@ -244,18 +248,19 @@ func associationWithLeastTime(nodes []node) (node, association, int, int) {
 		}
 	}
 
-	resultNode = nodes[resultNodeI]
-	resultAssociation = resultNode.Associations[resultAssociationI]
+	if resultNodeI >= 0 {
+		resultNode = nodes[resultNodeI]
+	}
+
+	if resultAssociationI >= 0 {
+		resultAssociation = resultNode.Associations[resultAssociationI]
+	}
 
 	return resultNode, resultAssociation, resultNodeI, resultAssociationI
 }
 
-func isTimeInTheFuture(t int64) bool {
-	if t > now() {
-		fmt.Printf("No ready nodes, next at %s\n", time.Unix(t, 0).Format(time.RFC1123))
-		return true
-	}
-	return false
+func timeInTheFutureMessage(t int64) {
+	fmt.Printf("No ready nodes, next at %s\n", time.Unix(t, 0).Format(time.RFC1123))
 }
 
 func deleteNodesAssociation(node1 node, node2 node) (node, bool) {
@@ -355,84 +360,135 @@ func makeNotificationScript(title string, text string) string {
 	return result
 }
 
+func nodeWithLeastExplanationTime(nodes []node) (node, int) {
+
+	resultNode := node{}
+	resultNodeI := -1
+
+	minimum := int64(math.MaxInt64)
+
+	for i, n := range nodes {
+		if n.NeedExplanation && n.ExplanationTime < minimum {
+			minimum = n.ExplanationTime
+			resultNodeI = i
+		}
+	}
+
+	if resultNodeI >= 0 {
+		resultNode = nodes[resultNodeI]
+	}
+
+	return resultNode, resultNodeI
+}
+
+func nodeWithLeastPracticeTime(nodes []node) (node, int) {
+
+	resultNode := node{}
+	resultNodeI := -1
+
+	minimum := int64(math.MaxInt64)
+
+	for i, n := range nodes {
+		if n.NeedPractice && n.PracticeTime < minimum {
+			minimum = n.PracticeTime
+			resultNodeI = i
+		}
+	}
+
+	if resultNodeI >= 0 {
+		resultNode = nodes[resultNodeI]
+	}
+
+	return resultNode, resultNodeI
+}
+
 func main() {
 
 	rand.Seed(time.Now().UnixNano())
 
-	associateLong := flag.String("associate", "", `Use with "-with" flag to associate two nodes. Example: 'gorepeat -associate "Year" -with "Jaro"'.`)
-	associateShort := flag.String("ac", "", `Same as "-associate" flag.`)
-	unassociateLong := flag.String("unassociate", "", `Use with "-with" flag to unassociate two nodes. Example: 'gorepeat -unassociate "Year" -with "Jaro"'.`)
-	unassociateShort := flag.String("uac", "", `Same as "-unassociate" flag.`)
-	uni := flag.Bool("uni", false, `Associate / unassociate both ways. Example: 'gorepeat -uni -associate "Year" -with "Jaro"'. Example: 'gorepeat -uni -unassociate "Year" -with "Jaro"'.`)
-	with := flag.String("with", "", `Use with "-associate" flag to associate two nodes. See "-associate" flag for example.`)
-	listAssociations := flag.String("list-associations", "", `Show all associations for a node. Example: 'gorepeat -list-associations "Year"'.`)
-	newNodeLong := flag.String("new-node", "", `Create a new node. Example: 'gorepeat -new-node "Year"'.`)
-	newNodeShort := flag.String("n", "", `Same as "-new-node" flag.`)
-	name := flag.String("name", "", `Use with "-new-node" flag to set a new node name. Use without "-new-node" flag to see node name. Example: 'gorepeat -new-node "Year" -name "English word". Example: 'gorepeat -name "Year".`)
-	rename := flag.String("rename", "", `Rename a node. Example: 'gorepeat -rename "Year" -to "Month"'.`)
-	to := flag.String("to", "", `Use with "-rename" to set a new node name. See "-rename" flag for example.`)
-	questionLong := flag.Bool("question", false, `Show a question. Example: 'gorepeat -question'.`)
-	questionShort := flag.Bool("q", false, `Same as "-question" flag.`)
-	answerLong := flag.Bool("answer", false, `Show the answer. Example: 'gorepeat -answer'.`)
-	answerShort := flag.Bool("a", false, `Same as "-answer" flag.`)
-	yes := flag.Bool("yes", false, `Correct answer. Example: 'gorepeat -yes'.`)
-	no := flag.Bool("no", false, `Incorrect answer. Example: 'gorepeat -no'.`)
-	textLong := flag.String("text", "", `Create a text file in a unit with "-new-node" flag, or in the currect directory if "-new-node" flag is not present. Example: 'gorepeat -new-node "English word" -text -is "Year"'. Example: 'gorepeat -text -is "Year"'.`)
-	textShort := flag.String("t", "", `Same as "-text" flag.`)
-	is := flag.String("is", "", `Use with "-text" flag to set text file content. See "-text" flag for example.`)
-	clean := flag.Bool("clean", false, `Use with "-question" or "-answer" flags to clean non-existent associations. Example: 'gorepeat -question -clean'.`)
-	classes := flag.Bool("classes", false, `Create two text nodes in two directories and uni-associate them. Example: 'gorepeat -classes "English word" "Year" "Esperanto word" "Jaro"'.`)
-	pair := flag.Bool("pair", false, `Create two text nodes the same directory and uni-associate them. Example: 'gorepeat -pair "Manipulator equation" "Definition" "Term"'.`)
-	withText := flag.Bool("with-text", false, `Use with "-classes" and "-pair" flags to create text files. Example: 'gorepeat -with-text -classes "English word" "Year" "Esperanto word" "Jaro"'.`)
-	notify := flag.String("notify", "", `Notify about ready nodes in specified directory. Example: 'gorepeat -notify "D:/GoRepeat"'.`)
+	associateLongFlag := flag.String("associate", "", `Use with "-with" flag to associate two nodes. Example: 'gorepeat -associate "Year" -with "Jaro"'.`)
+	associateShortFlag := flag.String("ac", "", `Same as "-associate" flag.`)
+	unassociateLongFlag := flag.String("unassociate", "", `Use with "-with" flag to unassociate two nodes. Example: 'gorepeat -unassociate "Year" -with "Jaro"'.`)
+	unassociateShortFlag := flag.String("uac", "", `Same as "-unassociate" flag.`)
+	uniFlag := flag.Bool("uni", false, `Associate / unassociate both ways. Example: 'gorepeat -uni -associate "Year" -with "Jaro"'. Example: 'gorepeat -uni -unassociate "Year" -with "Jaro"'.`)
+	withFlag := flag.String("with", "", `Use with "-associate" flag to associate two nodes. See "-associate" flag for example.`)
+	listAssociationsFlag := flag.String("list-associations", "", `Show all associations for a node. Example: 'gorepeat -list-associations "Year"'.`)
+	newNodeLongFlag := flag.String("new-node", "", `Create a new node. Example: 'gorepeat -new-node "Year"'.`)
+	newNodeShortFlag := flag.String("n", "", `Same as "-new-node" flag.`)
+	nameFlag := flag.String("name", "", `Use with "-new-node" flag to set a new node name. Use without "-new-node" flag to see node name. Example: 'gorepeat -new-node "Year" -name "English word". Example: 'gorepeat -name "Year".`)
+	renameFlag := flag.String("rename", "", `Rename a node. Example: 'gorepeat -rename "Year" -to "Month"'.`)
+	toFlag := flag.String("to", "", `Use with "-rename" to set a new node name. See "-rename" flag for example.`)
+	questionLongFlag := flag.Bool("question", false, `Show a question. Example: 'gorepeat -question'.`)
+	questionShortFlag := flag.Bool("q", false, `Same as "-question" flag.`)
+	answerLongFlag := flag.Bool("answer", false, `Show the answer. Example: 'gorepeat -answer'.`)
+	answerShortFlag := flag.Bool("a", false, `Same as "-answer" flag.`)
+	yesFlag := flag.Bool("yes", false, `Correct answer. Example: 'gorepeat -yes'.`)
+	noFlag := flag.Bool("no", false, `Incorrect answer. Example: 'gorepeat -no'.`)
+	textLongFlag := flag.String("text", "", `Create a text file in a unit with "-new-node" flag, or in the currect directory if "-new-node" flag is not present. Example: 'gorepeat -new-node "English word" -text -is "Year"'. Example: 'gorepeat -text -is "Year"'.`)
+	textShortFlag := flag.String("t", "", `Same as "-text" flag.`)
+	isFlag := flag.String("is", "", `Use with "-text" flag to set text file content. See "-text" flag for example.`)
+	cleanFlag := flag.Bool("clean", false, `Use with "-question" or "-answer" flags to clean non-existent associations. Example: 'gorepeat -question -clean'.`)
+	classesFlag := flag.Bool("classes", false, `Create two text nodes in two directories and uni-associate them. Example: 'gorepeat -classes "English word" "Year" "Esperanto word" "Jaro"'.`)
+	pairFlag := flag.Bool("pair", false, `Create two text nodes the same directory and uni-associate them. Example: 'gorepeat -pair "Manipulator equation" "Definition" "Term"'.`)
+	withTextFlag := flag.Bool("with-text", false, `Use with "-classes" and "-pair" flags to create text files. Example: 'gorepeat -with-text -classes "English word" "Year" "Esperanto word" "Jaro"'.`)
+	notifyFlag := flag.String("notify", "", `Notify about ready nodes in specified directory. Example: 'gorepeat -notify "D:/GoRepeat"'.`)
+	explanationFlag := flag.Bool("explanation", false, ``)
+	explanationAddedFlag := flag.Bool("explanation-added", false, ``)
+	disableExplanationFlag := flag.Bool("disable-explanation", false, ``)
+	enableExplanationFlag := flag.String("enable-explanation", "", ``)
+	practiceFlag := flag.Bool("practice", false, ``)
+	practiceAddedFlag := flag.Bool("practice-added", false, ``)
+	disablePracticeFlag := flag.Bool("disable-practice", false, ``)
+	enablePracticeFlag := flag.String("enable-practice", "", ``)
+	atFlag := flag.String("at", "", ``)
 
 	flag.Parse()
 
-	var unassociate *string
-	if len(*unassociateLong) > 0 {
-		unassociate = unassociateLong
+	var unassociateFlag *string
+	if len(*unassociateLongFlag) > 0 {
+		unassociateFlag = unassociateLongFlag
 	} else {
-		unassociate = unassociateShort
+		unassociateFlag = unassociateShortFlag
 	}
 
-	var associate *string
-	if len(*associateLong) > 0 {
-		associate = associateLong
+	var associateFlag *string
+	if len(*associateLongFlag) > 0 {
+		associateFlag = associateLongFlag
 	} else {
-		associate = associateShort
+		associateFlag = associateShortFlag
 	}
 
-	var question *bool
-	if *questionLong {
-		question = questionLong
+	var questionFlag *bool
+	if *questionLongFlag {
+		questionFlag = questionLongFlag
 	} else {
-		question = questionShort
+		questionFlag = questionShortFlag
 	}
 
-	var answer *bool
-	if *answerLong {
-		answer = answerLong
+	var answerFlag *bool
+	if *answerLongFlag {
+		answerFlag = answerLongFlag
 	} else {
-		answer = answerShort
+		answerFlag = answerShortFlag
 	}
 
-	var newNode *string
-	if len(*newNodeLong) > 0 {
-		newNode = newNodeLong
+	var newNodeFlag *string
+	if len(*newNodeLongFlag) > 0 {
+		newNodeFlag = newNodeLongFlag
 	} else {
-		newNode = newNodeShort
+		newNodeFlag = newNodeShortFlag
 	}
 
-	var text *string
-	if len(*textLong) > 0 {
-		text = textLong
+	var textFlag *string
+	if len(*textLongFlag) > 0 {
+		textFlag = textLongFlag
 	} else {
-		text = textShort
+		textFlag = textShortFlag
 	}
 
 	nodes := findNodes()
 
-	if *classes && flag.NArg() > 3 {
+	if *classesFlag && flag.NArg() > 3 {
 
 		node1Class := prepareName(flag.Arg(0))
 		node1Instance := prepareName(flag.Arg(1))
@@ -454,19 +510,19 @@ func main() {
 			return
 		}
 
-		e := writeNewNode(node1DirectoryPath, node1Class)
+		e := writeNewNode(node1DirectoryPath, node1Class, false, false)
 		if e != nil {
 			fmt.Println("Could not create first node")
 			return
 		}
 
-		e = writeNewNode(node2DirectoryPath, node2Class)
+		e = writeNewNode(node2DirectoryPath, node2Class, false, false)
 		if e != nil {
 			fmt.Println("Could not create second node")
 			return
 		}
 
-		if *withText {
+		if *withTextFlag {
 
 			node1TextPath := filepath.Join(node1DirectoryPath, textFileName)
 			node2TextPath := filepath.Join(node2DirectoryPath, textFileName)
@@ -521,7 +577,7 @@ func main() {
 
 		return
 
-	} else if *pair && flag.NArg() > 2 {
+	} else if *pairFlag && flag.NArg() > 2 {
 
 		nodesDirectory := prepareName(flag.Arg(0))
 		node1Name := prepareName(flag.Arg(1))
@@ -542,19 +598,19 @@ func main() {
 			return
 		}
 
-		e := writeNewNode(node1DirectoryPath, node1Name)
+		e := writeNewNode(node1DirectoryPath, node1Name, false, false)
 		if e != nil {
 			fmt.Println("Could not create first node")
 			return
 		}
 
-		e = writeNewNode(node2DirectoryPath, node2Name)
+		e = writeNewNode(node2DirectoryPath, node2Name, false, false)
 		if e != nil {
 			fmt.Println("Could not create second node")
 			return
 		}
 
-		if *withText {
+		if *withTextFlag {
 
 			node1TextPath := filepath.Join(node1DirectoryPath, textFileName)
 			node2TextPath := filepath.Join(node2DirectoryPath, textFileName)
@@ -609,18 +665,18 @@ func main() {
 
 		return
 
-	} else if len(*associate) > 0 && len(*with) > 0 {
+	} else if len(*associateFlag) > 0 && len(*withFlag) > 0 {
 
-		*associate = filepath.Clean(*associate)
-		*with = filepath.Clean(*with)
+		*associateFlag = filepath.Clean(*associateFlag)
+		*withFlag = filepath.Clean(*withFlag)
 
-		node1, ok := nodeWithDirectoryPath(nodes, *associate)
+		node1, ok := nodeWithDirectoryPath(nodes, *associateFlag)
 		if !ok {
 			fmt.Println("Node is not found for `-associate` flag")
 			return
 		}
 
-		node2, ok := nodeWithDirectoryPath(nodes, *with)
+		node2, ok := nodeWithDirectoryPath(nodes, *withFlag)
 		if !ok {
 			fmt.Println("Node is not found for `-with` flag")
 			return
@@ -636,7 +692,7 @@ func main() {
 			fmt.Println("First node is already associated with the second")
 		}
 
-		if *uni {
+		if *uniFlag {
 			node2, ok = addNodesAssociation(node2, node1)
 			if ok {
 				e := node2.update()
@@ -650,11 +706,11 @@ func main() {
 
 		return
 
-	} else if len(*listAssociations) > 0 {
+	} else if len(*listAssociationsFlag) > 0 {
 
-		*listAssociations = filepath.Clean(*listAssociations)
+		*listAssociationsFlag = filepath.Clean(*listAssociationsFlag)
 
-		n, ok := nodeWithDirectoryPath(nodes, *listAssociations)
+		n, ok := nodeWithDirectoryPath(nodes, *listAssociationsFlag)
 		if !ok {
 			fmt.Println("Node is not found for `-list-associations` flag")
 			return
@@ -671,26 +727,26 @@ func main() {
 
 		return
 
-	} else if len(*newNode) > 0 {
+	} else if len(*newNodeFlag) > 0 {
 
-		*newNode = filepath.Clean(*newNode)
-		*name = prepareName(*name)
+		*newNodeFlag = filepath.Clean(*newNodeFlag)
+		*nameFlag = prepareName(*nameFlag)
 
-		_, ok := nodeWithDirectoryPath(nodes, *newNode)
+		_, ok := nodeWithDirectoryPath(nodes, *newNodeFlag)
 		if ok {
 			fmt.Println("Node already exists")
 			return
 		}
 
-		e := writeNewNode(*newNode, *name)
+		e := writeNewNode(*newNodeFlag, *nameFlag, *explanationFlag, *practiceFlag)
 		if e != nil {
 			fmt.Println("Could not create a node")
 			return
 		}
 
-		if len(*text) > 0 && len(*is) > 0 {
-			*text = filepath.Clean(*text)
-			e := ioutil.WriteFile(filepath.Join(*newNode, *text), []byte(*is), os.ModePerm)
+		if len(*textFlag) > 0 && len(*isFlag) > 0 {
+			*textFlag = filepath.Clean(*textFlag)
+			e := ioutil.WriteFile(filepath.Join(*newNodeFlag, *textFlag), []byte(*isFlag), os.ModePerm)
 			if e != nil {
 				fmt.Println("Could not create text file")
 				return
@@ -699,7 +755,7 @@ func main() {
 
 		return
 
-	} else if *question {
+	} else if *questionFlag {
 
 		n, a, nI, _ := associationWithLeastTime(nodes)
 		if nI == -1 {
@@ -707,7 +763,8 @@ func main() {
 			return
 		}
 
-		if isTimeInTheFuture(a.Time) {
+		if a.Time > now() {
+			timeInTheFutureMessage(a.Time)
 			return
 		}
 
@@ -725,7 +782,7 @@ func main() {
 		nn, ok := nodeWithID(nodes, a.ID)
 		if !ok {
 			fmt.Println("Could not find answer node")
-			if *clean {
+			if *cleanFlag {
 				n, ok = deleteAssociation(n, a.ID)
 				if ok {
 					e := n.update()
@@ -753,7 +810,7 @@ func main() {
 
 		return
 
-	} else if *answer {
+	} else if *answerFlag {
 
 		_, a, nI, _ := associationWithLeastTime(nodes)
 		if nI == -1 {
@@ -761,14 +818,15 @@ func main() {
 			return
 		}
 
-		if isTimeInTheFuture(a.Time) {
+		if a.Time > now() {
+			timeInTheFutureMessage(a.Time)
 			return
 		}
 
 		n, ok := nodeWithID(nodes, a.ID)
 		if !ok {
 			fmt.Println("Could not find answer node")
-			if *clean {
+			if *cleanFlag {
 				n, ok = deleteAssociation(n, a.ID)
 				if ok {
 					e := n.update()
@@ -805,7 +863,7 @@ func main() {
 
 		return
 
-	} else if *yes {
+	} else if *yesFlag {
 
 		n, a, nI, aI := associationWithLeastTime(nodes)
 		if nI == -1 {
@@ -826,7 +884,7 @@ func main() {
 
 		return
 
-	} else if *no {
+	} else if *noFlag {
 
 		n, a, nI, aI := associationWithLeastTime(nodes)
 		if nI == -1 {
@@ -847,18 +905,18 @@ func main() {
 
 		return
 
-	} else if len(*unassociate) > 0 && len(*with) > 0 {
+	} else if len(*unassociateFlag) > 0 && len(*withFlag) > 0 {
 
-		*unassociate = filepath.Clean(*unassociate)
-		*with = filepath.Clean(*with)
+		*unassociateFlag = filepath.Clean(*unassociateFlag)
+		*withFlag = filepath.Clean(*withFlag)
 
-		node1, ok := nodeWithDirectoryPath(nodes, *unassociate)
+		node1, ok := nodeWithDirectoryPath(nodes, *unassociateFlag)
 		if !ok {
 			fmt.Println("Node is not found for `-unassociate` flag")
 			return
 		}
 
-		node2, ok := nodeWithDirectoryPath(nodes, *with)
+		node2, ok := nodeWithDirectoryPath(nodes, *withFlag)
 		if !ok {
 			fmt.Println("Node is not found for `-with` flag")
 			return
@@ -874,7 +932,7 @@ func main() {
 			fmt.Println("First node is already unassociated with the second")
 		}
 
-		if *uni {
+		if *uniFlag {
 			n, ok := deleteNodesAssociation(node2, node1)
 			if ok {
 				e := n.update()
@@ -888,11 +946,11 @@ func main() {
 
 		return
 
-	} else if len(*name) > 0 {
+	} else if len(*nameFlag) > 0 {
 
-		*name = filepath.Clean(*name)
+		*nameFlag = filepath.Clean(*nameFlag)
 
-		n, ok := nodeWithDirectoryPath(nodes, *name)
+		n, ok := nodeWithDirectoryPath(nodes, *nameFlag)
 		if !ok {
 			fmt.Println("Could not find node")
 			return
@@ -902,17 +960,17 @@ func main() {
 
 		return
 
-	} else if len(*rename) > 0 && len(*to) > 0 {
+	} else if len(*renameFlag) > 0 && len(*toFlag) > 0 {
 
-		*rename = filepath.Clean(*rename)
+		*renameFlag = filepath.Clean(*renameFlag)
 
-		n, ok := nodeWithDirectoryPath(nodes, *rename)
+		n, ok := nodeWithDirectoryPath(nodes, *renameFlag)
 		if !ok {
 			fmt.Println("Node is not found")
 			return
 		}
 
-		n.Name = prepareName(*to)
+		n.Name = prepareName(*toFlag)
 
 		e := n.update()
 		if e != nil {
@@ -922,11 +980,11 @@ func main() {
 
 		return
 
-	} else if len(*text) > 0 && len(*is) > 0 {
+	} else if len(*textFlag) > 0 && len(*isFlag) > 0 {
 
-		*text = filepath.Clean(*text)
+		*textFlag = filepath.Clean(*textFlag)
 
-		e := ioutil.WriteFile(*text, []byte(*is), os.ModePerm)
+		e := ioutil.WriteFile(*textFlag, []byte(*isFlag), os.ModePerm)
 		if e != nil {
 			fmt.Println("Could not create text file")
 			return
@@ -934,11 +992,11 @@ func main() {
 
 		return
 
-	} else if len(*notify) > 0 {
+	} else if len(*notifyFlag) > 0 {
 
-		*notify = filepath.Clean(*notify)
+		*notifyFlag = filepath.Clean(*notifyFlag)
 
-		e := os.Chdir(*notify)
+		e := os.Chdir(*notifyFlag)
 		if e != nil {
 			fmt.Println("Provided path is invalid")
 			return
@@ -963,7 +1021,8 @@ func main() {
 				continue
 			}
 
-			if isTimeInTheFuture(a.Time) {
+			if a.Time > now() {
+				timeInTheFutureMessage(a.Time)
 				continue
 			}
 
@@ -974,6 +1033,236 @@ func main() {
 
 			exec.Command("cmd", "/c", "powershell", "-NoExit", "-Command", makeNotificationScript("Node is ready", associationName(n, nn))).Run()
 		}
+
+		// Return.
+
+	} else if *explanationFlag {
+
+		n, nI := nodeWithLeastExplanationTime(nodes)
+		if nI == -1 {
+			fmt.Println("No nodes that needs an explanation")
+			return
+		}
+
+		if n.ExplanationTime > now() {
+			timeInTheFutureMessage(n.ExplanationTime)
+			return
+		}
+
+		fmt.Printf("Need explanation for node: %s | %s", n.Name, n.directoryPath)
+
+		return
+
+	} else if *practiceFlag {
+
+		n, nI := nodeWithLeastPracticeTime(nodes)
+		if nI == -1 {
+			fmt.Println("No nodes that needs a practice")
+			return
+		}
+
+		if n.PracticeTime > now() {
+			timeInTheFutureMessage(n.PracticeTime)
+			return
+		}
+
+		fmt.Printf("Need practice for node: %s | %s", n.Name, n.directoryPath)
+
+		return
+
+	} else if *explanationAddedFlag {
+
+		n, nI := nodeWithLeastExplanationTime(nodes)
+		if nI == -1 {
+			fmt.Println("No nodes that needs an explanation")
+			return
+		}
+
+		if n.ExplanationTime > now() {
+			timeInTheFutureMessage(n.ExplanationTime)
+			return
+		}
+
+		n.ExplanationTime = now() + secondsInADay + rand.Int63n(timeScatter)
+
+		e := n.update()
+		if e != nil {
+			fmt.Println("Could not update node")
+			return
+		}
+
+		return
+
+	} else if *practiceAddedFlag {
+
+		n, nI := nodeWithLeastPracticeTime(nodes)
+		if nI == -1 {
+			fmt.Println("No nodes that needs a practice")
+			return
+		}
+
+		if n.PracticeTime > now() {
+			timeInTheFutureMessage(n.PracticeTime)
+			return
+		}
+
+		n.PracticeTime = now() + secondsInADay + rand.Int63n(timeScatter)
+
+		e := n.update()
+		if e != nil {
+			fmt.Println("Could not update node")
+			return
+		}
+
+		return
+
+	} else if *disableExplanationFlag {
+
+		n := node{}
+
+		if len(*atFlag) > 0 {
+
+			*atFlag = filepath.Clean(*atFlag)
+
+			var ok bool
+
+			n, ok = nodeWithDirectoryPath(nodes, *atFlag)
+			if !ok {
+				fmt.Println("Node is not found")
+				return
+			}
+
+			if !n.NeedExplanation {
+				fmt.Println("Explanation is already not needed for this node")
+				return
+			}
+
+		} else {
+
+			var nI int
+
+			n, nI = nodeWithLeastExplanationTime(nodes)
+			if nI == -1 {
+				fmt.Println("No nodes that needs an explanation")
+				return
+			}
+
+			if n.ExplanationTime > now() {
+				timeInTheFutureMessage(n.ExplanationTime)
+				return
+			}
+		}
+
+		n.NeedExplanation = false
+		n.ExplanationTime = now()
+
+		e := n.update()
+		if e != nil {
+			fmt.Println("Could not update node")
+			return
+		}
+
+		return
+
+	} else if *disablePracticeFlag {
+
+		n := node{}
+
+		if len(*atFlag) > 0 {
+
+			*atFlag = filepath.Clean(*atFlag)
+
+			var ok bool
+
+			n, ok = nodeWithDirectoryPath(nodes, *atFlag)
+			if !ok {
+				fmt.Println("Node is not found")
+				return
+			}
+
+			if !n.NeedPractice {
+				fmt.Println("Practice is already not needed for this node")
+				return
+			}
+
+		} else {
+
+			var nI int
+
+			n, nI = nodeWithLeastPracticeTime(nodes)
+			if nI == -1 {
+				fmt.Println("No nodes that needs a practice")
+				return
+			}
+
+			if n.PracticeTime > now() {
+				timeInTheFutureMessage(n.PracticeTime)
+				return
+			}
+		}
+
+		n.NeedPractice = false
+		n.PracticeTime = now()
+
+		e := n.update()
+		if e != nil {
+			fmt.Println("Could not update node")
+			return
+		}
+
+		return
+
+	} else if len(*enableExplanationFlag) > 0 {
+
+		*enableExplanationFlag = filepath.Clean(*enableExplanationFlag)
+
+		n, ok := nodeWithDirectoryPath(nodes, *enableExplanationFlag)
+		if !ok {
+			fmt.Println("Node is not found")
+			return
+		}
+
+		if n.NeedExplanation {
+			fmt.Println("This node is already needs an explanation")
+			return
+		}
+
+		n.NeedExplanation = true
+		n.ExplanationTime = now()
+
+		e := n.update()
+		if e != nil {
+			fmt.Println("Could not update node")
+			return
+		}
+
+		return
+
+	} else if len(*enablePracticeFlag) > 0 {
+
+		*enablePracticeFlag = filepath.Clean(*enablePracticeFlag)
+
+		n, ok := nodeWithDirectoryPath(nodes, *enablePracticeFlag)
+		if !ok {
+			fmt.Println("Node is not found")
+			return
+		}
+
+		if n.NeedPractice {
+			fmt.Println("This node is already needs a practice")
+			return
+		}
+
+		n.NeedPractice = true
+		n.PracticeTime = now()
+
+		e := n.update()
+		if e != nil {
+			fmt.Println("Could not update node")
+			return
+		}
+
+		return
 
 	} else {
 
