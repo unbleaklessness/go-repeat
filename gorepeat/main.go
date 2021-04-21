@@ -351,7 +351,7 @@ func makeNotificationScript(title string, text string) string {
 	result += `$xml = New-Object Windows.Data.Xml.Dom.XmlDocument;`
 	result += `$xml.LoadXml($toastXml.OuterXml);`
 	result += `$toast = [Windows.UI.Notifications.ToastNotification]::new($xml);`
-	result += `$toast.Tag = "PowerShell";`
+	result += `$toast.Tag = Get-Random;`
 	result += `$toast.Group = "PowerShell";`
 	result += `$toast.ExpirationTime = [DateTimeOffset]::Now.AddMinutes(1440);`
 	result += `$notifier = [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("PowerShell");`
