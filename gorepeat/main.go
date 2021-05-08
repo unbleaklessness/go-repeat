@@ -26,12 +26,12 @@ type association struct {
 
 type node struct {
 	ID              uint64
-	Name            string
 	Associations    []association
 	NeedExplanation bool
 	ExplanationTime int64
 	NeedPractice    bool
 	PracticeTime    int64
+	directoryName   string
 	filePath        string
 	directoryPath   string
 }
@@ -48,7 +48,8 @@ func now() int64 {
 }
 
 func stageTime(stage int) int64 {
-	return now() + stages[stage]*secondsInADay + rand.Int63n(timeScatter)
+	stageTime := stages[stage] * secondsInADay
+	return now() + stageTime + rand.Int63n(timeScatter)
 }
 
 func nextStage(stage int) int {
@@ -99,6 +100,8 @@ func readNode(path string) (node, error) {
 	directoryPath, _ := filepath.Split(path)
 	n.directoryPath = filepath.Clean(directoryPath)
 
+	n.directoryName = filepath.Base(n.directoryPath)
+
 	return n, nil
 }
 
@@ -121,6 +124,11 @@ func findNodes() []node {
 			defer waitGroup.Done()
 
 			if !isNode(info) {
+				return
+			}
+
+			path, e = filepath.Abs(path)
+			if e != nil {
 				return
 			}
 
@@ -172,22 +180,15 @@ func nodeWithID(nodes []node, id uint64) (node, bool) {
 	return node{}, false
 }
 
-func writeNewNode(path string, name string, needExplanation bool, needPractice bool) error {
-
-	if len(name) < 1 {
-		name = filepath.Base(path)
-	}
+func writeNewNode(path string, needExplanation bool, needPractice bool) error {
 
 	n := node{
 		ID:              makeID(),
-		Name:            name,
 		NeedExplanation: needExplanation,
 		ExplanationTime: now(),
 		NeedPractice:    needPractice,
 		PracticeTime:    now(),
 	}
-
-	nodePath := filepath.Join(path, nodeFileName)
 
 	data, e := json.Marshal(n)
 	if e != nil {
@@ -199,7 +200,7 @@ func writeNewNode(path string, name string, needExplanation bool, needPractice b
 		return e
 	}
 
-	return ioutil.WriteFile(nodePath, data, os.ModePerm)
+	return ioutil.WriteFile(filepath.Join(path, nodeFileName), data, os.ModePerm)
 }
 
 func nodeFiles(n node) ([]string, error) {
@@ -327,7 +328,7 @@ func addNodesAssociation(node1 node, node2 node) (node, bool) {
 }
 
 func associationName(node1 node, node2 node) string {
-	return node1.Name + " -> " + node2.Name
+	return node1.directoryName + " -> " + node2.directoryName
 }
 
 func prepareName(name string) string {
@@ -415,9 +416,6 @@ func main() {
 	listAssociationsFlag := flag.String("list-associations", "", `Show all associations for a node. Example: 'gorepeat -list-associations "Year"'.`)
 	newNodeLongFlag := flag.String("new-node", "", `Create a new node. Example: 'gorepeat -new-node "Year"'.`)
 	newNodeShortFlag := flag.String("n", "", `Same as "-new-node" flag.`)
-	nameFlag := flag.String("name", "", `Use with "-new-node" flag to set a new node name. Use without "-new-node" flag to see node name. Example: 'gorepeat -new-node "Year" -name "English word". Example: 'gorepeat -name "Year".`)
-	renameFlag := flag.String("rename", "", `Rename a node. Example: 'gorepeat -rename "Year" -to "Month"'.`)
-	toFlag := flag.String("to", "", `Use with "-rename" to set a new node name. See "-rename" flag for example.`)
 	questionLongFlag := flag.Bool("question", false, `Show a question. Example: 'gorepeat -question'.`)
 	questionShortFlag := flag.Bool("q", false, `Same as "-question" flag.`)
 	answerLongFlag := flag.Bool("answer", false, `Show the answer. Example: 'gorepeat -answer'.`)
@@ -495,8 +493,8 @@ func main() {
 		node2Class := prepareName(flag.Arg(2))
 		node2Instance := prepareName(flag.Arg(3))
 
-		node1DirectoryPath := filepath.Join(node1Class, node1Instance)
-		node2DirectoryPath := filepath.Join(node2Class, node2Instance)
+		node1DirectoryPath := filepath.Join(node1Class, node1Instance, node1Class)
+		node2DirectoryPath := filepath.Join(node2Class, node2Instance, node2Class)
 
 		_, ok := nodeWithDirectoryPath(nodes, node1DirectoryPath)
 		if ok {
@@ -510,13 +508,13 @@ func main() {
 			return
 		}
 
-		e := writeNewNode(node1DirectoryPath, node1Class, false, false)
+		e := writeNewNode(node1DirectoryPath, false, false)
 		if e != nil {
 			fmt.Println("Could not create first node")
 			return
 		}
 
-		e = writeNewNode(node2DirectoryPath, node2Class, false, false)
+		e = writeNewNode(node2DirectoryPath, false, false)
 		if e != nil {
 			fmt.Println("Could not create second node")
 			return
@@ -598,13 +596,13 @@ func main() {
 			return
 		}
 
-		e := writeNewNode(node1DirectoryPath, node1Name, false, false)
+		e := writeNewNode(node1DirectoryPath, false, false)
 		if e != nil {
 			fmt.Println("Could not create first node")
 			return
 		}
 
-		e = writeNewNode(node2DirectoryPath, node2Name, false, false)
+		e = writeNewNode(node2DirectoryPath, false, false)
 		if e != nil {
 			fmt.Println("Could not create second node")
 			return
@@ -722,7 +720,7 @@ func main() {
 				continue
 			}
 
-			fmt.Printf("%d) %s | %s\n", i+1, associationName(n, nn), nn.directoryPath)
+			fmt.Printf("%d) %s\n", (i + 1), nn.directoryPath)
 		}
 
 		return
@@ -730,7 +728,6 @@ func main() {
 	} else if len(*newNodeFlag) > 0 {
 
 		*newNodeFlag = filepath.Clean(*newNodeFlag)
-		*nameFlag = prepareName(*nameFlag)
 
 		_, ok := nodeWithDirectoryPath(nodes, *newNodeFlag)
 		if ok {
@@ -738,7 +735,7 @@ func main() {
 			return
 		}
 
-		e := writeNewNode(*newNodeFlag, *nameFlag, *explanationFlag, *practiceFlag)
+		e := writeNewNode(*newNodeFlag, *explanationFlag, *practiceFlag)
 		if e != nil {
 			fmt.Println("Could not create a node")
 			return
@@ -946,40 +943,6 @@ func main() {
 
 		return
 
-	} else if len(*nameFlag) > 0 {
-
-		*nameFlag = filepath.Clean(*nameFlag)
-
-		n, ok := nodeWithDirectoryPath(nodes, *nameFlag)
-		if !ok {
-			fmt.Println("Could not find node")
-			return
-		}
-
-		fmt.Println(n.Name)
-
-		return
-
-	} else if len(*renameFlag) > 0 && len(*toFlag) > 0 {
-
-		*renameFlag = filepath.Clean(*renameFlag)
-
-		n, ok := nodeWithDirectoryPath(nodes, *renameFlag)
-		if !ok {
-			fmt.Println("Node is not found")
-			return
-		}
-
-		n.Name = prepareName(*toFlag)
-
-		e := n.update()
-		if e != nil {
-			fmt.Println("Could not update node")
-			return
-		}
-
-		return
-
 	} else if len(*textFlag) > 0 && len(*isFlag) > 0 {
 
 		*textFlag = filepath.Clean(*textFlag)
@@ -1042,7 +1005,7 @@ func main() {
 					continue
 				}
 
-				text := n.Name + " | " + n.directoryPath
+				text := n.directoryName + " | " + n.directoryPath
 				exec.Command("cmd", "/c", "powershell", "-NoExit", "-Command", makeNotificationScript("Explanation needed", text)).Run()
 
 			case <-practiceTicker.C:
@@ -1058,7 +1021,7 @@ func main() {
 					continue
 				}
 
-				text := n.Name + " | " + n.directoryPath
+				text := n.directoryName + " | " + n.directoryPath
 				exec.Command("cmd", "/c", "powershell", "-NoExit", "-Command", makeNotificationScript("Practice needed", text)).Run()
 			}
 		}
@@ -1078,7 +1041,7 @@ func main() {
 			return
 		}
 
-		fmt.Printf("Need explanation for node: %s | %s\n", n.Name, n.directoryPath)
+		fmt.Printf("Need explanation for node: %s | %s\n", n.directoryName, n.directoryPath)
 
 		return
 
@@ -1095,7 +1058,7 @@ func main() {
 			return
 		}
 
-		fmt.Printf("Need practice for node: %s | %s\n", n.Name, n.directoryPath)
+		fmt.Printf("Need practice for node: %s | %s\n", n.directoryName, n.directoryPath)
 
 		return
 
